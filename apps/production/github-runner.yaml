@@ -11,7 +11,7 @@ metadata:
     app.kubernetes.io/part-of: cicd
     app.kubernetes.io/version: "2.321.0"
 spec:
-  replicas: 2
+  replicas: 1  # Reduced for testing
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -29,37 +29,29 @@ spec:
     spec:
       serviceAccountName: github-runner
       securityContext:
-        # Talos-compatible security contexts
-        runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
+        # Talos-compatible security contexts - allow root for GitHub runner
+        runAsNonRoot: false
+        runAsUser: 0
+        runAsGroup: 0
+        fsGroup: 0
         seccompProfile:
           type: RuntimeDefault
       containers:
       - name: runner
-        image: ghcr.io/actions/actions-runner:2.321.0
+        image: myoung34/github-runner:latest
         imagePullPolicy: Always
         securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-          readOnlyRootFilesystem: false  # GitHub runner needs write access
-          runAsNonRoot: true
-          runAsUser: 1000
-          runAsGroup: 1000
+          privileged: true
+          runAsUser: 0
+          runAsGroup: 0
         env:
-        - name: GITHUB_TOKEN
+        - name: ACCESS_TOKEN
           valueFrom:
             secretKeyRef:
               name: github-runner-secret
               key: github-token
-        - name: GITHUB_OWNER
-          valueFrom:
-            secretKeyRef:
-              name: github-runner-secret
-              key: github-org
+        - name: ORG_NAME
+          value: "Cloudy-with-a-Chance-of-Tech"
         - name: RUNNER_NAME
           valueFrom:
             secretKeyRef:
@@ -67,14 +59,20 @@ spec:
               key: runner-name
         - name: RUNNER_WORKDIR
           value: "/tmp/runner"
-        - name: DISABLE_RUNNER_UPDATE
-          value: "true"
+        - name: DISABLE_AUTO_UPDATE
+          value: "false"
         - name: RUNNER_SCOPE
           value: "org"
         - name: LABELS
           value: "kubernetes,talos,cilium,homelab,arm64"
         - name: EPHEMERAL
-          value: "true"
+          value: "1"
+        - name: RUNNER_ALLOW_RUNASROOT
+          value: "1"
+        - name: ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT
+          value: "1"
+        - name: RUNNER_TOOL_CACHE
+          value: "/tmp/tool-cache"
         resources:
           requests:
             memory: "512Mi"
@@ -85,9 +83,6 @@ spec:
         volumeMounts:
         - name: runner-work
           mountPath: /tmp/runner
-        - name: docker-sock
-          mountPath: /var/run/docker.sock
-          readOnly: true
         - name: tmp
           mountPath: /tmp
         lifecycle:
@@ -121,10 +116,6 @@ spec:
       - name: runner-work
         emptyDir:
           sizeLimit: 10Gi
-      - name: docker-sock
-        hostPath:
-          path: /var/run/docker.sock
-          type: Socket
       - name: tmp
         emptyDir:
           sizeLimit: 1Gi
