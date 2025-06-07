@@ -1,6 +1,8 @@
 # GitHub Actions Self-Hosted Runner Setup
 
-This guide walks through setting up self-hosted GitHub Actions runners in your Talos Kubernetes cluster.
+This guid### Step 3: Deploy the Runner Infrastructure
+
+The secret templates in `security/` are for reference only. Actual secrets are created automatically by the GitHub Actions workflow using the repository secrets you configured above.tting up self-hosted GitHub Actions runners in your Talos Kubernetes cluster.
 
 ## Overview
 
@@ -32,9 +34,27 @@ The GitHub runner setup consists of:
 3. Select the required scopes mentioned above
 4. Copy the token securely
 
-### Step 2: Update the Secret
+### Step 2: Configure GitHub Actions Secrets
 
-Replace the placeholder token in the secret file:
+Before deploying, you must configure the required secrets in your GitHub repository:
+
+1. Go to your repository → Settings → Secrets and variables → Actions
+2. Click "New repository secret" and add each of the following:
+
+| Secret Name | Description | Example Value |
+|-------------|-------------|---------------|
+| `RUNNER_TOKEN` | GitHub Personal Access Token with repo, admin:org, workflow scopes | `ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx` |
+| `ORG_NAME` | Your GitHub organization or username | `your-github-username` |
+| `GRAFANA_ADMIN_PASSWORD` | Strong password for Grafana admin user | `your-secure-grafana-password` |
+
+**Important:** 
+- Never use secret names that start with `GITHUB_` as GitHub Actions restricts these
+- Store these values securely and rotate them regularly
+- The `RUNNER_TOKEN` should have minimal required permissions
+
+### Step 3: Update the Secret Templates
+
+The secret templates in the `security/` directory are for reference only and contain placeholders:
 
 ```bash
 # Navigate to the repository
@@ -49,25 +69,27 @@ vim security/github-runner-secret.yaml
 
 Replace `REPLACE_WITH_BASE64_ENCODED_TOKEN` with your actual base64-encoded token.
 
-### Step 3: Deploy the Runner Infrastructure
+### Step 4: Deploy the Runner Infrastructure
 
-Apply the manifests in order:
+Apply the base infrastructure manually first, then use GitOps for application deployment:
 
 ```bash
-# 1. Create namespace
-kubectl apply -f base/namespaces/github-actions.yaml
+# 1. Create namespaces and RBAC (one-time setup)
+kubectl apply -f base/namespaces/
+kubectl apply -f base/rbac/
 
-# 2. Set up RBAC
-kubectl apply -f base/rbac/github-runner-rbac.yaml
-
-# 3. Create secret (ensure token is updated first!)
-kubectl apply -f security/github-runner-secret.yaml
-
-# 4. Deploy the runners
-kubectl apply -f apps/production/github-runner.yaml
+# 2. Push to main branch to trigger GitOps deployment
+git add .
+git commit -m "Configure GitHub Actions secrets"
+git push origin main
 ```
 
-### Step 4: Verify Deployment
+The GitHub Actions workflow will automatically:
+- Create secrets from repository secrets
+- Deploy the runner applications
+- Set up monitoring and networking
+
+### Step 5: Verify Deployment
 
 Check that everything is running correctly:
 
@@ -134,7 +156,7 @@ jobs:
 
 | Issue | Symptoms | Solution |
 |-------|----------|----------|
-| Runner not registering | Pods running but no runners in GitHub | Check token permissions and base64 encoding |
+| Runner not registering | Pods running but no runners in GitHub | Check GitHub Actions secret values and token permissions |
 | Permission denied | Containers crashing with permission errors | Verify Talos security contexts and RBAC |
 | Docker socket access | Build failures with Docker commands | Ensure `/var/run/docker.sock` is available on nodes |
 | High resource usage | Frequent restarts or slow performance | Adjust resource limits or increase node capacity |
@@ -198,8 +220,9 @@ spec:
 
 Regularly rotate your GitHub tokens:
 1. Generate new token in GitHub
-2. Update the secret: `kubectl create secret generic github-runner-secret --from-literal=github-token=NEW_TOKEN --dry-run=client -o yaml | kubectl apply -f -`
-3. Restart deployment: `kubectl rollout restart deployment/github-runner -n github-actions`
+2. Update the `RUNNER_TOKEN` secret in GitHub Actions repository secrets
+3. Re-run the GitOps deployment workflow to update cluster secrets
+4. Or manually update: `kubectl create secret generic github-runner-secret --from-literal=github-token=NEW_TOKEN --namespace=github-actions --dry-run=client -o yaml | kubectl apply -f -`
 
 ### Monitoring
 

@@ -122,6 +122,29 @@ This setup follows several key principles:
 5. **Failure is Expected** - Chaos engineering and resilience testing built-in
 6. **Documentation Matters** - Every configuration should be self-explanatory
 
+## Quick Setup
+
+### Prerequisites
+- Talos Kubernetes cluster with Cilium CNI
+- GitHub repository with Actions enabled
+- kubectl configured for your cluster
+
+### Initial Setup
+1. **Configure GitHub Secrets** (Repository → Settings → Secrets and variables → Actions):
+   - `RUNNER_TOKEN` - GitHub Personal Access Token (repo, admin:org, workflow scopes)
+   - `ORG_NAME` - Your GitHub organization or username  
+   - `GRAFANA_ADMIN_PASSWORD` - Strong password for Grafana admin
+
+2. **Bootstrap Base Infrastructure**:
+   ```bash
+   kubectl apply -f base/namespaces/
+   kubectl apply -f base/rbac/
+   ```
+
+3. **Enable GitOps** - Push to main branch triggers automated deployment
+
+📖 **Detailed setup guide**: [docs/github-actions-setup.md](docs/github-actions-setup.md)
+
 ## Usage Notes
 
 ### Development Workflow

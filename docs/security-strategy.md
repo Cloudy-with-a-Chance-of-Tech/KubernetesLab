@@ -15,8 +15,8 @@ This document outlines the security approach for the Kubernetes Lab repository a
 During CI/CD deployment, secrets are injected from GitHub Actions secrets:
 
 **Required GitHub Actions Secrets:**
-- `GITHUB_RUNNER_TOKEN` - GitHub Personal Access Token for self-hosted runners
-- `GITHUB_ORG_NAME` - Your GitHub organization name
+- `RUNNER_TOKEN` - GitHub Personal Access Token for self-hosted runners
+- `ORG_NAME` - Your GitHub organization name
 - `GRAFANA_ADMIN_PASSWORD` - Grafana admin password
 
 **How to set up GitHub Actions secrets:**

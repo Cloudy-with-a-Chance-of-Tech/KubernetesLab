@@ -110,8 +110,8 @@ jobs:
       - name: 'Deploy Production Applications'
         env:
           # GitHub runner secrets injected from GitHub Actions secrets
-          GITHUB_TOKEN: ${{ secrets.GITHUB_RUNNER_TOKEN }}
-          GITHUB_ORG: ${{ secrets.GITHUB_ORG_NAME }}
+          GITHUB_TOKEN: ${{ secrets.RUNNER_TOKEN }}
+          GITHUB_ORG: ${{ secrets.ORG_NAME }}
           GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
         run: |
           # Create actual secrets from GitHub Actions secrets (not templates)
