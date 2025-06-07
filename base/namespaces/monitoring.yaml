@@ -1,0 +1,15 @@
+# Monitoring namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    name: monitoring
+    app.kubernetes.io/name: monitoring
+    app.kubernetes.io/part-of: monitoring-stack
+    kubernetes.io/managed-by: kustomize
+  annotations:
+    kubernetes.io/description: "Namespace for monitoring stack (Prometheus, Grafana, Alertmanager)"
+spec:
+  finalizers:
+  - kubernetes

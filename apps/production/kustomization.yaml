@@ -1,0 +1,48 @@
+# kustomization.yaml for production applications
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: production-apps
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+# Production application resources
+resources:
+  - github-runner.yaml
+  # Add more production applications here as you build them
+  # - prometheus.yaml
+  # - grafana.yaml
+  # - nginx-ingress.yaml
+
+# Common labels applied to all resources
+commonLabels:
+  environment: production
+  managed-by: kustomize
+  cluster: talos-homelab
+
+# Namespace for all production apps (can be overridden per resource)
+namespace: default
+
+# Resource transformations
+patches:
+  # Patch GitHub runner for production-specific settings
+  - target:
+      kind: Deployment
+      name: github-runner
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: ENVIRONMENT
+          value: "production"
+
+# Images (for future container image management)
+images: []
+
+# Configuration generators
+configMapGenerator: []
+secretGenerator: []

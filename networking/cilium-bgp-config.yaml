@@ -1,0 +1,198 @@
+# Cilium BGP peering configuration for pfSense integration
+# Based on current cluster configuration:
+# - Cluster nodes: 192.168.1.x network
+# - Load balancer pool: 192.168.100.100/27 (existing pf-vip-pool)
+# - Default gateway: 192.168.1.1
+# - pfSense router: 192.168.1.99 (handles 192.168.100.0/24 routing)
+apiVersion: cilium.io/v2alpha1
+kind: CiliumBGPPeeringPolicy
+metadata:
+  name: pfsense-bgp-peering
+  namespace: cilium  # Changed to cilium namespace where BGP config should live
+  labels:
+    app.kubernetes.io/name: cilium-bgp
+    app.kubernetes.io/component: networking
+    app.kubernetes.io/part-of: cilium-cni
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/os: linux
+  virtualRouters:
+  - localASN: 64512  # Private ASN for Kubernetes cluster
+    exportPodCIDR: false  # Set to false since using tunnel mode
+    serviceSelector:
+      matchExpressions:
+      # Select all LoadBalancer services for BGP advertisement
+      - key: io.cilium/lb-ipam
+        operator: Exists
+    neighbors:
+    - peerAddress: "192.168.1.99"  # pfSense router IP (handles 192.168.100.0/24)
+      peerASN: 64511  # Private ASN for pfSense
+      gracefulRestart:
+        enabled: true
+        restartTimeSeconds: 120
+      connectRetryTimeSeconds: 120
+      holdTimeSeconds: 90
+      keepAliveTimeSeconds: 30
+      families:
+      - afi: ipv4
+        safi: unicast
+        advertisements:
+          matchLabels:
+            advertise: "bgp"
+---
+# Production Load Balancer IP Pool (existing pf-vip-pool)
+# Part of the 192.168.100.0/24 network managed by pfSense at 192.168.1.99
+apiVersion: cilium.io/v2alpha1
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: pf-vip-pool-production
+  labels:
+    app.kubernetes.io/name: cilium-lb-pool
+    app.kubernetes.io/component: networking
+    app.kubernetes.io/part-of: cilium-cni
+    environment: production
+spec:
+  blocks:
+  - cidr: "192.168.100.100/27"  # Production: 192.168.100.96-127 (32 IPs)
+  serviceSelector:
+    matchLabels:
+      environment: production
+  disabled: false
+---
+# Development Load Balancer IP Pool
+# Second /27 subnet within 192.168.100.0/24
+apiVersion: cilium.io/v2alpha1
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: pf-vip-pool-development
+  labels:
+    app.kubernetes.io/name: cilium-lb-pool
+    app.kubernetes.io/component: networking
+    app.kubernetes.io/part-of: cilium-cni
+    environment: development
+spec:
+  blocks:
+  - cidr: "192.168.100.128/27"  # Development: 192.168.100.128-159 (32 IPs)
+  serviceSelector:
+    matchLabels:
+      environment: development
+  disabled: false
+---
+# Staging Load Balancer IP Pool
+# Third /27 subnet within 192.168.100.0/24
+apiVersion: cilium.io/v2alpha1
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: pf-vip-pool-staging
+  labels:
+    app.kubernetes.io/name: cilium-lb-pool
+    app.kubernetes.io/component: networking
+    app.kubernetes.io/part-of: cilium-cni
+    environment: staging
+spec:
+  blocks:
+  - cidr: "192.168.100.160/27"  # Staging: 192.168.100.160-191 (32 IPs)
+  serviceSelector:
+    matchLabels:
+      environment: staging
+  disabled: false
+---
+# Shared Services Load Balancer IP Pool
+# Fourth /27 subnet for shared infrastructure (monitoring, vault, etc.)
+apiVersion: cilium.io/v2alpha1
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: pf-vip-pool-shared
+  labels:
+    app.kubernetes.io/name: cilium-lb-pool
+    app.kubernetes.io/component: networking
+    app.kubernetes.io/part-of: cilium-cni
+    environment: shared
+spec:
+  blocks:
+  - cidr: "192.168.100.192/27"  # Shared: 192.168.100.192-223 (32 IPs)
+  serviceSelector:
+    matchLabels:
+      environment: shared
+  disabled: false
+---
+# Legacy/Existing Pool (for backward compatibility)
+# This matches your existing pf-vip-pool that's currently in use
+apiVersion: cilium.io/v2alpha1
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: pf-vip-pool-legacy
+  labels:
+    app.kubernetes.io/name: cilium-lb-pool
+    app.kubernetes.io/component: networking
+    app.kubernetes.io/part-of: cilium-cni
+    environment: legacy
+spec:
+  blocks:
+  - cidr: "192.168.100.100/27"  # Same as production for existing services
+  serviceSelector:
+    matchExpressions:
+    # Select services that don't have environment label (existing services)
+    - key: environment
+      operator: DoesNotExist
+  disabled: false
+---
+# Network Policy for GitHub Actions namespace
+# Restricts traffic to/from GitHub runners for security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: github-actions-netpol
+  namespace: github-actions
+  labels:
+    app.kubernetes.io/name: github-actions-netpol
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: networking
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: github-runner
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow monitoring scraping from monitoring namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8080  # Metrics port
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow HTTPS to GitHub and package registries
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow HTTP for package downloads (npm, apt, etc.)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 80
+  # Allow Kubernetes API access (for kubectl operations)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 6443
+  # Allow access to cluster internal services
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80
