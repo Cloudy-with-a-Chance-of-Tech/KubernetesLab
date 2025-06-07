@@ -1,0 +1,39 @@
+name: Test Self-Hosted Runner
+on:
+  workflow_dispatch:
+    inputs:
+      test_message:
+        description: 'Test message to echo'
+        required: false
+        default: 'Hello from Kubernetes self-hosted runner!'
+
+jobs:
+  test-runner:
+    runs-on: [self-hosted, kubernetes, arm64]
+    steps:
+      - name: Echo test message
+        run: |
+          echo "🚀 Testing self-hosted runner on Kubernetes!"
+          echo "Message: ${{ github.event.inputs.test_message }}"
+          echo "Runner: $(hostname)"
+          echo "Architecture: $(uname -m)"
+          echo "Kubernetes context: $(kubectl config current-context 2>/dev/null || echo 'No kubectl access')"
+          
+      - name: Verify runner environment
+        run: |
+          echo "=== Runner Environment ==="
+          echo "OS: $(uname -a)"
+          echo "User: $(whoami)"
+          echo "Working directory: $(pwd)"
+          echo "Available space: $(df -h /tmp | tail -1)"
+          echo "CPU info: $(lscpu | grep 'Model name' || echo 'CPU info not available')"
+          
+      - name: Test Docker access (if available)
+        run: |
+          if command -v docker &> /dev/null; then
+            echo "Docker is available:"
+            docker --version
+            docker info --format '{{.ServerVersion}}' 2>/dev/null || echo "Docker daemon not accessible"
+          else
+            echo "Docker not installed or not in PATH"
+          fi
