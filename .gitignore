@@ -1,0 +1,201 @@
+# Kubernetes specific files
+*.yaml.bak
+*.yml.bak
+kustomization.yaml.bak
+kustomization.yml.bak
+
+# Helm files
+charts/*/charts/
+charts/*/requirements.lock
+charts/*/Chart.lock
+
+# Secrets and sensitive data
+secrets/
+*.secret
+*.key
+*.pem
+*.crt
+*.csr
+*.p12
+*.pfx
+kubeconfig*
+.kube/
+config
+
+# Temporary Kubernetes files
+.kubectl_last_applied_configuration
+*.tmp
+*.temp
+
+# Operator SDK
+bin/
+testbin/
+
+# IDE and Editor files
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# JetBrains IDEs (IntelliJ, PyCharm, etc.)
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+.netrwhist
+
+# Emacs
+*~
+\#*\#
+.\#*
+.dir-locals.el
+
+# Nano
+*.save
+
+# Operating System files
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# Log files
+*.log
+logs/
+log/
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# Archive files
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.rar
+*.7z
+
+# Environment and configuration files
+.env
+.env.local
+.env.*.local
+*.env
+
+# Docker files (if using Docker with Kubernetes)
+.dockerignore
+docker-compose.override.yml
+
+# Terraform (if using for infrastructure)
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+*.tfvars
+*.tfplan
+
+# Node.js (if you have any Node.js tooling)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+
+# Python (if you have any Python tooling)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Go (if you have any Go tooling)
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+
+# Local development and testing
+.local/
+coverage/
+*.cover
+.coverage
+.cache
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
