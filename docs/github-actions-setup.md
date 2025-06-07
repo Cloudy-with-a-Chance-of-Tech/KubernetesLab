@@ -1,8 +1,6 @@
 # GitHub Actions Self-Hosted Runner Setup
 
-This guid### Step 3: Deploy the Runner Infrastructure
-
-The secret templates in `security/` are for reference only. Actual secrets are created automatically by the GitHub Actions workflow using the repository secrets you configured above.tting up self-hosted GitHub Actions runners in your Talos Kubernetes cluster.
+This guide walks through setting up self-hosted GitHub Actions runners in your Talos Kubernetes cluster.
 
 ## Overview
 

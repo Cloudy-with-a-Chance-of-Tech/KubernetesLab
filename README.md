@@ -16,6 +16,7 @@ This lab focuses on building a robust Kubernetes environment that can handle eve
 | **Storage** | Persistent Volumes | NFS + Local Storage Classes |
 | **Networking** | CNI & Load Balancing | Cilium + BGP to pfSense |
 | **Monitoring** | Observability Stack | Prometheus + Grafana + AlertManager |
+| **CI/CD** | GitHub Actions Runners | Self-hosted runners on ARM64 nodes |
 
 ## What's Inside
 
@@ -33,6 +34,7 @@ This repository contains configurations for:
   
 - **GitOps Workflows**
   - GitHub-based GitOps with automated deployments
+  - Self-hosted GitHub Actions runners on Kubernetes
   - Environment promotion through Git workflows
   - Continuous deployment pipelines
 
@@ -77,6 +79,9 @@ Before diving into these configurations, make sure you have:
    
    # Ingress controller
    kubectl apply -f ingress/
+   
+   # GitHub Actions runners (requires secrets setup first)
+   kubectl apply -f apps/production/github-runner.yaml
    ```
 
 ## Directory Structure
@@ -99,6 +104,65 @@ Before diving into these configurations, make sure you have:
 ├── security/              # Security policies and tools
 └── docs/                  # Additional documentation
 ```
+
+## GitHub Actions Self-Hosted Runners
+
+This lab includes a production-ready setup for GitHub Actions self-hosted runners that execute directly on your Kubernetes cluster. This provides several advantages over GitHub's hosted runners:
+
+### 🚀 **Benefits**
+- **Native Kubernetes Access**: Runners can directly interact with your cluster
+- **ARM64 Support**: Optimized for Raspberry Pi CM4 worker nodes
+- **Cost Effective**: No GitHub Actions minutes consumed for self-hosted runner jobs
+- **Custom Environment**: Full control over runner environment and tools
+- **Network Access**: Direct access to internal services and resources
+
+### 📋 **Current Configuration**
+- **Location**: `apps/production/github-runner.yaml`
+- **Namespace**: `github-actions`
+- **Architecture**: ARM64 (Raspberry Pi CM4 optimized)
+- **Mode**: Ephemeral (fresh environment per job)
+- **Labels**: `kubernetes`, `talos`, `cilium`, `homelab`, `arm64`, `self-hosted`
+- **Security**: Privileged containers with proper RBAC
+
+### 🔧 **Required Secrets**
+Before deploying runners, create these Kubernetes secrets:
+
+```bash
+# GitHub token with repo, admin:org, workflow scopes
+kubectl create secret generic github-runner-secret \
+  --from-literal=github-token="your_github_token" \
+  --from-literal=runner-name="k8s-runner" \
+  -n github-actions
+```
+
+### 🎯 **Using in Workflows**
+Target your self-hosted runners in GitHub Actions workflows:
+
+```yaml
+jobs:
+  deploy:
+    runs-on: [self-hosted, kubernetes, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to cluster
+        run: kubectl apply -f manifests/
+```
+
+### 📊 **Monitoring & Scaling**
+- **HPA**: Auto-scales from 1-5 runners based on CPU/memory usage
+- **Resource Limits**: 2Gi RAM, 1 CPU per runner
+- **Health Checks**: Liveness and readiness probes monitor runner status
+- **Logs**: Centralized logging with pod log aggregation
+
+**Verify runner status:**
+```bash
+kubectl get pods -n github-actions
+kubectl logs -f deployment/github-runner -n github-actions
+```
+
+**Check in GitHub**: Organization Settings → Actions → Runners
+
+📖 **Detailed setup guide**: [docs/github-actions-setup.md](docs/github-actions-setup.md)
 
 ## Automation & Management
 
@@ -135,13 +199,27 @@ This setup follows several key principles:
    - `ORG_NAME` - Your GitHub organization or username  
    - `GRAFANA_ADMIN_PASSWORD` - Strong password for Grafana admin
 
-2. **Bootstrap Base Infrastructure**:
+2. **Create Kubernetes Secrets**:
+   ```bash
+   # GitHub runner authentication
+   kubectl create secret generic github-runner-secret \
+     --from-literal=github-token="$RUNNER_TOKEN" \
+     --from-literal=runner-name="k8s-runner" \
+     -n github-actions
+   ```
+
+3. **Bootstrap Base Infrastructure**:
    ```bash
    kubectl apply -f base/namespaces/
    kubectl apply -f base/rbac/
    ```
 
-3. **Enable GitOps** - Push to main branch triggers automated deployment
+4. **Deploy GitHub Actions Runners**:
+   ```bash
+   kubectl apply -f apps/production/github-runner.yaml
+   ```
+
+5. **Enable GitOps** - Push to main branch triggers automated deployment
 
 📖 **Detailed setup guide**: [docs/github-actions-setup.md](docs/github-actions-setup.md)
 
@@ -183,6 +261,19 @@ talosctl logs --tail
 talosctl get members
 ```
 
+**Manage GitHub Actions runners:**
+```bash
+# Check runner status
+kubectl get pods -n github-actions
+kubectl logs -f deployment/github-runner -n github-actions
+
+# Scale runners manually
+kubectl scale deployment/github-runner --replicas=3 -n github-actions
+
+# Restart runners (useful for updates)
+kubectl rollout restart deployment/github-runner -n github-actions
+```
+
 ## Troubleshooting
 
 Most common issues and their solutions:
@@ -194,6 +285,8 @@ Most common issues and their solutions:
 | LoadBalancer stuck pending | BGP peering issue | Verify `kubectl get ciliumnodes` and pfSense BGP config |
 | Node not ready | Talos system issue | Check `talosctl health` and `talosctl logs` |
 | Storage issues | PV/PVC mismatch | Verify storage class and access modes |
+| GitHub runner not appearing | Authentication or permission issue | Check `kubectl logs deployment/github-runner -n github-actions` and verify secrets |
+| Runner jobs failing | Missing tools or permissions | Check runner logs and ensure required tools are installed in container |
 
 For more complex issues, check the monitoring dashboards first - they usually tell the story.
 
