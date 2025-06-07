@@ -1,15 +1,9 @@
-# Kubernetes specific files
-*.yaml.bak
-*.yml.bak
-kustomization.yaml.bak
-kustomization.yml.bak
-
-# Helm files
-charts/*/charts/
-charts/*/requirements.lock
-charts/*/Chart.lock
-
-# Secrets and sensitive data
+# ==============================================
+# SECURITY: Sensitive files and directories
+# ==============================================
+.env
+.env.*
+!.env.example
 secrets/
 *.secret
 *.key
@@ -19,6 +13,13 @@ secrets/
 *.p12
 *.pfx
 kubeconfig*
+!kubeconfig.example
+vault-keys.json
+*.token
+
+# ==============================================
+# Kubernetes specific files
+# ==============================================
 .kube/
 config
 

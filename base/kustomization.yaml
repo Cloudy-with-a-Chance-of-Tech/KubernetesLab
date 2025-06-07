@@ -1,0 +1,31 @@
+# kustomization.yaml for base Kubernetes resources
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: base-resources
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+# Base infrastructure resources
+resources:
+  - namespaces/github-actions.yaml
+  - namespaces/monitoring.yaml
+  - namespaces/environments.yaml
+  - rbac/github-runner-rbac.yaml
+  # Add more base resources as needed
+  # - storage/persistent-volumes.yaml
+  # - talos/machine-configs.yaml
+
+# Common labels for all base resources
+commonLabels:
+  layer: base
+  managed-by: kustomize
+  cluster: kub-cluster
+
+# Resource ordering (namespaces first, then RBAC)
+sortOptions:
+  order: fifo
+
+# Validation settings
+buildMetadata: [originAnnotations]

@@ -1,0 +1,216 @@
+name: 'GitOps Deploy to Kubernetes'
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/**'
+      - 'base/**'
+      - 'monitoring/**'
+      - 'networking/**'
+      - 'security/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'apps/**'
+      - 'base/**'
+      - 'monitoring/**'
+      - 'networking/**'
+      - 'security/**'
+
+env:
+  KUBECONFIG: /tmp/kubeconfig
+
+jobs:
+  validate:
+    name: 'Validate Kubernetes Manifests'
+    runs-on: [self-hosted, kubernetes, talos]
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 'Setup kubectl'
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.29.0'
+
+      - name: 'Validate YAML Syntax'
+        run: |
+          find . -name "*.yaml" -o -name "*.yml" | while read file; do
+            echo "Validating $file"
+            kubectl apply --dry-run=client --validate=true -f "$file" || exit 1
+          done
+
+      - name: 'Lint with kube-score'
+        run: |
+          # Install kube-score
+          wget -O kube-score https://github.com/zegl/kube-score/releases/download/v1.17.0/kube-score_1.17.0_linux_arm64
+          chmod +x kube-score
+          sudo mv kube-score /usr/local/bin/
+          
+          # Lint all manifests
+          find . -name "*.yaml" -o -name "*.yml" | xargs kube-score score --output-format ci
+
+  deploy-staging:
+    name: 'Deploy to Staging'
+    runs-on: [self-hosted, kubernetes, talos]
+    needs: validate
+    if: github.event_name == 'pull_request'
+    environment: staging
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v4
+
+      - name: 'Setup kubectl'
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.29.0'
+
+      - name: 'Deploy Base Resources'
+        run: |
+          kubectl apply -k base/ --dry-run=server
+          kubectl apply -k base/
+
+      - name: 'Deploy Applications (Staging)'
+        run: |
+          # Apply staging-specific configurations
+          if [ -d "apps/staging" ]; then
+            kubectl apply -k apps/staging/ --dry-run=server
+            kubectl apply -k apps/staging/
+          fi
+
+      - name: 'Verify Deployment'
+        run: |
+          kubectl get pods --all-namespaces
+          kubectl get services --all-namespaces
+
+  deploy-production:
+    name: 'Deploy to Production'
+    runs-on: [self-hosted, kubernetes, talos]
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v4
+
+      - name: 'Setup kubectl'
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.29.0'
+
+      - name: 'Deploy Base Resources'
+        run: |
+          kubectl apply -k base/
+
+      - name: 'Deploy Production Applications'
+        env:
+          # GitHub runner secrets injected from GitHub Actions secrets
+          GITHUB_TOKEN: ${{ secrets.GITHUB_RUNNER_TOKEN }}
+          GITHUB_ORG: ${{ secrets.GITHUB_ORG_NAME }}
+          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+        run: |
+          # Create actual secrets from GitHub Actions secrets (not templates)
+          kubectl create secret generic github-runner-secret \
+            --from-literal=github-token="$GITHUB_TOKEN" \
+            --from-literal=runner-name="k8s-runner" \
+            --from-literal=github-org="$GITHUB_ORG" \
+            --namespace=github-actions \
+            --dry-run=client -o yaml | kubectl apply -f -
+          
+          kubectl create secret generic grafana-admin-secret \
+            --from-literal=admin-password="$GRAFANA_ADMIN_PASSWORD" \
+            --namespace=monitoring \
+            --dry-run=client -o yaml | kubectl apply -f -
+          
+          # Deploy applications (excluding secret templates)
+          kubectl apply -k apps/production/ --selector='!config.kubernetes.io/local-config'
+
+      - name: 'Deploy Monitoring Stack'
+        run: |
+          if [ -d "monitoring/" ]; then
+            kubectl apply -k monitoring/
+          fi
+
+      - name: 'Deploy Networking Configuration'
+        run: |
+          if [ -d "networking/" ]; then
+            kubectl apply -k networking/
+          fi
+
+      - name: 'Verify Production Deployment'
+        run: |
+          echo "=== Checking Pod Status ==="
+          kubectl get pods --all-namespaces -o wide
+          
+          echo "=== Checking Service Status ==="
+          kubectl get services --all-namespaces
+          
+          echo "=== Checking Ingress Status ==="
+          kubectl get ingress --all-namespaces
+          
+          echo "=== Checking Node Status ==="
+          kubectl get nodes -o wide
+
+      - name: 'Run Health Checks'
+        run: |
+          # Wait for deployments to be ready
+          kubectl wait --for=condition=available --timeout=300s deployment --all -A
+          
+          # Check specific application health
+          if kubectl get deployment github-runner -n github-actions; then
+            kubectl wait --for=condition=available --timeout=120s deployment/github-runner -n github-actions
+            echo "✅ GitHub runner deployment is healthy"
+          fi
+
+  security-scan:
+    name: 'Security Scan'
+    runs-on: [self-hosted, kubernetes, talos]
+    needs: validate
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v4
+
+      - name: 'Install trivy'
+        run: |
+          wget -qO- https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo "deb https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install trivy
+
+      - name: 'Scan Kubernetes Manifests'
+        run: |
+          trivy config . --format table --exit-code 1
+
+      - name: 'Check for Secrets in Code'
+        run: |
+          # Install gitleaks
+          wget -O gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.18.0/gitleaks_8.18.0_linux_arm64.tar.gz
+          tar -xzf gitleaks.tar.gz
+          chmod +x gitleaks
+          
+          # Scan for secrets
+          ./gitleaks detect --source . --verbose
+
+  notify:
+    name: 'Notify Deployment Status'
+    runs-on: [self-hosted, kubernetes, talos]
+    needs: [deploy-production, security-scan]
+    if: always()
+    steps:
+      - name: 'Notify Success'
+        if: needs.deploy-production.result == 'success' && needs.security-scan.result == 'success'
+        run: |
+          echo "✅ Deployment completed successfully!"
+          echo "🔒 Security scan passed"
+          
+      - name: 'Notify Failure'
+        if: needs.deploy-production.result == 'failure' || needs.security-scan.result == 'failure'
+        run: |
+          echo "❌ Deployment failed or security issues found"
+          echo "Check the logs for details"
+          exit 1

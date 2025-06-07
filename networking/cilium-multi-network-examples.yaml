@@ -1,0 +1,149 @@
+# Alternative network segmentation examples for Cilium BGP
+# Choose one of these approaches based on your network requirements
+
+# OPTION 1: Multiple /24 networks (if you have more IP space)
+# Each environment gets its own /24 network
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: production-network
+  labels:
+    environment: production
+spec:
+  blocks:
+  - cidr: "192.168.100.0/24"  # Production: 192.168.100.1-254
+  serviceSelector:
+    matchLabels:
+      environment: production
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: development-network
+  labels:
+    environment: development
+spec:
+  blocks:
+  - cidr: "192.168.101.0/24"  # Development: 192.168.101.1-254
+  serviceSelector:
+    matchLabels:
+      environment: development
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: staging-network
+  labels:
+    environment: staging
+spec:
+  blocks:
+  - cidr: "192.168.102.0/24"  # Staging: 192.168.102.1-254
+  serviceSelector:
+    matchLabels:
+      environment: staging
+
+# OPTION 2: Namespace-based segmentation
+# Each namespace gets its own subnet regardless of environment
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: vault-pool
+spec:
+  blocks:
+  - cidr: "192.168.100.90/29"  # Vault: 192.168.100.88-95 (8 IPs)
+  serviceSelector:
+    matchExpressions:
+    - key: app.kubernetes.io/name
+      operator: In
+      values: ["vault"]
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: monitoring-pool
+spec:
+  blocks:
+  - cidr: "192.168.100.80/29"  # Monitoring: 192.168.100.80-87 (8 IPs)
+  serviceSelector:
+    matchExpressions:
+    - key: app.kubernetes.io/part-of
+      operator: In
+      values: ["monitoring", "prometheus", "grafana"]
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: github-actions-pool
+spec:
+  blocks:
+  - cidr: "192.168.100.72/29"  # GitHub Actions: 192.168.100.72-79 (8 IPs)
+  serviceSelector:
+    matchExpressions:
+    - key: app.kubernetes.io/name
+      operator: In
+      values: ["github-runner"]
+
+# OPTION 3: Application-type based segmentation
+# Different types of applications get different subnets
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: web-applications-pool
+spec:
+  blocks:
+  - cidr: "192.168.100.200/28"  # Web apps: 192.168.100.192-207 (16 IPs)
+  serviceSelector:
+    matchLabels:
+      app.kubernetes.io/component: web
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: api-services-pool
+spec:
+  blocks:
+  - cidr: "192.168.100.208/28"  # APIs: 192.168.100.208-223 (16 IPs)
+  serviceSelector:
+    matchLabels:
+      app.kubernetes.io/component: api
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: database-services-pool
+spec:
+  blocks:
+  - cidr: "192.168.100.224/28"  # Databases: 192.168.100.224-239 (16 IPs)
+  serviceSelector:
+    matchLabels:
+      app.kubernetes.io/component: database
+
+# OPTION 4: Priority-based pools (fallback mechanism)
+# High priority services get preferred IP ranges
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: critical-services-pool
+spec:
+  blocks:
+  - cidr: "192.168.100.240/28"  # Critical: 192.168.100.240-255 (16 IPs)
+  serviceSelector:
+    matchLabels:
+      service.kubernetes.io/priority: critical
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: standard-services-pool
+spec:
+  blocks:
+  - cidr: "192.168.100.128/25"  # Standard: 192.168.100.128-255 (128 IPs)
+  serviceSelector:
+    matchExpressions:
+    - key: service.kubernetes.io/priority
+      operator: NotIn
+      values: ["critical"]
