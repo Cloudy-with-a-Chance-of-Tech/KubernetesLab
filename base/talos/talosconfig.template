@@ -1,0 +1,14 @@
+context: kub
+contexts:
+    kub:
+        endpoints:
+            - lead
+            - tin
+            - nickel
+        nodes:
+            - lead
+            - tin
+            - nickel
+        ca: "{{ CA_CERTIFICATE }}"
+        crt: "{{ CLIENT_CERTIFICATE }}"
+        key: "{{ CLIENT_KEY }}"

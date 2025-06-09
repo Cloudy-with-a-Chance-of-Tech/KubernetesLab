@@ -23,6 +23,13 @@ vault-keys.json
 .kube/
 config
 
+# ==============================================
+# Talos configuration files (contain secrets)
+# ==============================================
+base/talos/controlplane.yaml
+base/talos/worker.yaml
+base/talos/talosconfig
+
 # Temporary Kubernetes files
 .kubectl_last_applied_configuration
 *.tmp
@@ -200,3 +207,9 @@ coverage/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Talos sensitive credentials
+base/talos/talosconfig
+*.key
+*.crt
+**/secrets/

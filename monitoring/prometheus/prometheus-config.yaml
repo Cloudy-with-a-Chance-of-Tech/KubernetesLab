@@ -14,7 +14,7 @@ data:
       scrape_interval: 15s
       evaluation_interval: 15s
       external_labels:
-        cluster: 'talos-homelab'
+        cluster: 'kub'
         region: 'homelab'
 
     rule_files:

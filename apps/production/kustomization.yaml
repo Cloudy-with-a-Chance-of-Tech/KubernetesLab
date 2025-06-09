@@ -19,7 +19,7 @@ resources:
 commonLabels:
   environment: production
   managed-by: kustomize
-  cluster: talos-homelab
+  cluster: kub
 
 # Namespace for all production apps (can be overridden per resource)
 namespace: default

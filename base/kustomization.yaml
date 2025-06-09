@@ -13,15 +13,15 @@ resources:
   - namespaces/monitoring.yaml
   - namespaces/environments.yaml
   - rbac/github-runner-rbac.yaml
+  - storage/
   # Add more base resources as needed
-  # - storage/persistent-volumes.yaml
-  # - talos/machine-configs.yaml
+  # Note: Talos machine configs are managed by scripts and contain secrets
 
 # Common labels for all base resources
 commonLabels:
   layer: base
   managed-by: kustomize
-  cluster: kub-cluster
+  cluster: kub
 
 # Resource ordering (namespaces first, then RBAC)
 sortOptions:

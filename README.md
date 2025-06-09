@@ -13,7 +13,7 @@ This lab focuses on building a robust Kubernetes environment that can handle eve
 | **Operating System** | Immutable OS | Talos Linux |
 | **Control Plane** | Kubernetes Masters | Lenovo Tiny Desktops (3x nodes) |
 | **Worker Nodes** | Workload Execution | Raspberry Pi CM4 Cluster (6x nodes, 8GB RAM, NVMe) |
-| **Storage** | Persistent Volumes | NFS + Local Storage Classes |
+| **Storage** | Persistent Volumes | local-path-provisioner + NFS |
 | **Networking** | CNI & Load Balancing | Cilium + BGP to pfSense |
 | **Monitoring** | Observability Stack | Prometheus + Grafana + AlertManager |
 | **CI/CD** | GitHub Actions Runners | Self-hosted runners on ARM64 nodes |
@@ -44,13 +44,18 @@ This repository contains configurations for:
 
 Before diving into these configurations, make sure you have:
 
-- A running Talos Kubernetes cluster (obviously!)
-- `kubectl` configured and pointing to your cluster
-- `talosctl` configured for cluster management
+- Physical nodes or VMs ready for Talos installation
+- `talosctl` CLI tool installed
+- `kubectl` CLI tool installed  
 - Basic understanding of Kubernetes concepts (Pods, Services, Deployments, etc.)
+- Network configuration planned (node IPs, BGP setup if applicable)
 - Optionally: Helm 3.x for chart-based deployments
 
-### Quick Setup
+### Cluster Lifecycle Management
+
+This repository includes comprehensive automation scripts for managing your Talos Kubernetes cluster from initial deployment to teardown. All scripts are located in the `scripts/` directory.
+
+#### 🚀 **Complete Setup (New Cluster)**
 
 1. **Clone this repository**
    ```bash
@@ -58,31 +63,102 @@ Before diving into these configurations, make sure you have:
    cd KubernetesLab
    ```
 
-2. **Verify cluster connectivity**
+2. **Configure node IP addresses**
    ```bash
-   kubectl cluster-info
-   kubectl get nodes
-   talosctl version
+   # Edit scripts to match your environment
+   nano scripts/deploy-cluster.sh      # Update CONTROLPLANE_IPS and WORKER_IPS
+   nano scripts/install-cilium.sh     # Update BGP configuration if needed
    ```
 
-3. **Apply base configurations**
+3. **Run complete setup**
    ```bash
-   # Start with namespaces and basic RBAC
-   kubectl apply -f base/namespaces/
-   kubectl apply -f base/rbac/
+   # This orchestrates the entire cluster deployment
+   ./scripts/setup-complete-cluster.sh
    ```
 
-4. **Deploy core services**
+   Or for a quick setup without prompts:
    ```bash
-   # Monitoring stack
-   kubectl apply -f monitoring/
-   
-   # Ingress controller
-   kubectl apply -f ingress/
-   
-   # GitHub Actions runners (requires secrets setup first)
-   kubectl apply -f apps/production/github-runner.yaml
+   # Skip confirmation prompts and reset
+   ./scripts/setup-complete-cluster.sh --skip-reset
    ```
+
+#### 🔧 **Manual Step-by-Step Deployment**
+
+For more control or troubleshooting, you can run each step individually:
+
+1. **Generate Talos configurations**
+   ```bash
+   ./scripts/generate-talos-config.sh
+   ```
+
+2. **Deploy configurations to nodes**
+   ```bash
+   ./scripts/deploy-cluster.sh
+   ```
+
+3. **Bootstrap Kubernetes cluster**
+   ```bash
+   ./scripts/bootstrap-cluster.sh
+   ```
+
+4. **Install Cilium CNI**
+   ```bash
+   ./scripts/install-cilium.sh
+   ```
+
+#### 🗑️ **Cluster Teardown**
+
+When you need to rebuild or decommission:
+
+```bash
+# Safely destroy the entire cluster
+./scripts/destroy-cluster.sh
+```
+
+#### 🔄 **Working with Existing Pi Cluster**
+
+If you already have a running Talos Kubernetes cluster on Raspberry Pi hardware, these scripts can help you manage it safely:
+
+1. **Setup talosconfig for existing cluster**
+   ```bash
+   # Configure talosctl to work with your existing cluster
+   ./scripts/setup-talosconfig.sh
+   ```
+
+2. **Check cluster status and health**
+   ```bash
+   # Comprehensive health check for Pi cluster
+   ./scripts/cluster-status.sh
+   ```
+
+3. **Regenerate configurations (if needed)**
+   ```bash
+   # Updates Talos configs based on existing control_nodes.yaml
+   ./scripts/generate-talos-config.sh
+   ```
+
+4. **Safe cluster reset for Pi nodes**
+   ```bash
+   # Safely destroys cluster using VIP endpoint
+   # Uses --wipe-mode user-disks for remote Pi nodes
+   ./scripts/destroy-cluster.sh
+   ```
+
+**Pi-Specific Considerations:**
+- All operations use VIP endpoint (192.168.1.30) for remote management
+- Scripts include extended timeouts for Pi boot sequences
+- Destroy operations use `--wipe-mode user-disks` for safe remote reset
+- Hardware address to hostname mapping handles Pi-specific networking
+
+#### 📖 **Script Documentation**
+
+Each script includes detailed documentation and error handling. For comprehensive usage information:
+
+```bash
+# See all available scripts and their purposes
+ls -la scripts/
+cat scripts/README.md
+```
 
 ## Directory Structure
 
@@ -91,7 +167,16 @@ Before diving into these configurations, make sure you have:
 │   ├── namespaces/        # Namespace definitions
 │   ├── rbac/              # Role-based access control
 │   ├── storage/           # Storage classes and PVs
-│   └── talos/             # Talos machine configurations
+│   └── talos/             # Talos machine configuration templates
+├── scripts/               # Cluster lifecycle automation
+│   ├── generate-talos-config.sh    # Generate machine configs
+│   ├── deploy-cluster.sh           # Deploy configs to nodes
+│   ├── bootstrap-cluster.sh        # Initialize Kubernetes
+│   ├── install-cilium.sh          # Install CNI with BGP
+│   ├── destroy-cluster.sh         # Safely teardown cluster
+│   ├── setup-complete.sh          # End-to-end automation
+│   ├── validate-setup.sh          # Health & status validation
+│   └── README.md                   # Script documentation
 ├── apps/                   # Application deployments
 │   ├── development/       # Dev environment apps
 │   ├── staging/           # Staging environment apps
@@ -103,6 +188,85 @@ Before diving into these configurations, make sure you have:
 ├── networking/            # Cilium configs and BGP policies
 ├── security/              # Security policies and tools
 └── docs/                  # Additional documentation
+```
+
+## Storage Configuration
+
+The cluster uses **local-path-provisioner** for dynamic persistent volume provisioning on the Raspberry Pi nodes. This provides fast local storage for applications while maintaining the ability to schedule pods with persistent storage on any node.
+
+### 🏠 **Storage Setup**
+
+#### **Automatic Installation**
+Storage is automatically configured when using the complete setup script:
+```bash
+./scripts/setup-complete-cluster.sh
+```
+
+#### **Manual Installation**
+To install storage separately:
+```bash
+# Install local-path-provisioner
+./scripts/install-storage.sh
+
+# Validate storage functionality
+./scripts/validate-storage.sh
+```
+
+### 📊 **Storage Features**
+
+- **Dynamic Provisioning**: Automatically creates persistent volumes on demand
+- **Default StorageClass**: `local-path` is set as the default storage class
+- **Node Storage Path**: `/opt/local-path-provisioner` on each node
+- **Volume Binding Mode**: `WaitForFirstConsumer` for optimal pod scheduling
+- **Reclaim Policy**: `Delete` to clean up storage when PVCs are removed
+- **ARM64 Optimized**: Specifically configured for Raspberry Pi CM4 architecture
+
+### 🧪 **Testing Storage**
+
+The repository includes comprehensive storage testing:
+
+```bash
+# Run storage validation tests
+./scripts/validate-storage.sh
+
+# Deploy test workloads
+kubectl apply -f base/storage/storage-test.yaml
+
+# Monitor storage usage
+kubectl get pv,pvc --all-namespaces
+```
+
+### 💡 **Usage Examples**
+
+**Simple PVC:**
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: app-storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path  # Can be omitted (default)
+  resources:
+    requests:
+      storage: 10Gi
+```
+
+**StatefulSet with Storage:**
+```yaml
+apiVersion: apps/v1
+kind: StatefulSet
+spec:
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: local-path
+      resources:
+        requests:
+          storage: 5Gi
 ```
 
 ## GitHub Actions Self-Hosted Runners
@@ -186,14 +350,16 @@ This setup follows several key principles:
 5. **Failure is Expected** - Chaos engineering and resilience testing built-in
 6. **Documentation Matters** - Every configuration should be self-explanatory
 
-## Quick Setup
+## Application Deployment
 
-### Prerequisites
-- Talos Kubernetes cluster with Cilium CNI
-- GitHub repository with Actions enabled
+Once your cluster is running, you can deploy applications using the pre-configured manifests:
+
+### Prerequisites for Applications
+- Running Talos Kubernetes cluster with Cilium CNI
+- GitHub repository with Actions enabled (for GitHub runners)
 - kubectl configured for your cluster
 
-### Initial Setup
+### Initial Application Setup
 1. **Configure GitHub Secrets** (Repository → Settings → Secrets and variables → Actions):
    - `RUNNER_TOKEN` - GitHub Personal Access Token (repo, admin:org, workflow scopes)
    - `ORG_NAME` - Your GitHub organization or username  
@@ -214,8 +380,12 @@ This setup follows several key principles:
    kubectl apply -f base/rbac/
    ```
 
-4. **Deploy GitHub Actions Runners**:
+4. **Deploy Core Services**:
    ```bash
+   # Monitoring stack
+   kubectl apply -f monitoring/
+   
+   # GitHub Actions runners
    kubectl apply -f apps/production/github-runner.yaml
    ```
 
@@ -235,6 +405,23 @@ This setup follows several key principles:
 6. Monitor everything - seriously, everything
 
 ### Common Operations
+
+**Cluster Lifecycle:**
+```bash
+# Rebuild entire cluster
+./scripts/destroy-cluster.sh && ./scripts/setup-complete.sh
+
+# Update cluster configurations
+./scripts/generate-talos-config.sh
+./scripts/deploy-cluster.sh
+
+# Validate cluster health
+./scripts/validate-setup.sh
+
+# Recreate just the CNI
+kubectl delete -f https://raw.githubusercontent.com/cilium/cilium/1.14.3/install/kubernetes/quick-install.yaml
+./scripts/install-cilium.sh
+```
 
 **Scale a deployment:**
 ```bash
@@ -280,6 +467,10 @@ Most common issues and their solutions:
 
 | Issue | Likely Cause | Solution |
 |-------|--------------|----------|
+| Script fails during cluster setup | Network/connectivity issue | Check node IPs in scripts, verify network connectivity |
+| Talos config generation fails | Missing talosctl or permissions | Install talosctl, check file permissions in base/talos/ |
+| Cluster bootstrap timeout | Nodes not responding | Verify Talos installation, check `talosctl health` |
+| Cilium installation fails | CNI conflict or network policy | Clean install with `./scripts/destroy-cluster.sh` then retry |
 | Pods stuck in Pending | Resource constraints | Check `kubectl describe pod` and node resources |
 | Service unreachable | BGP route not advertised | Check Cilium BGP policies and pfSense routing |
 | LoadBalancer stuck pending | BGP peering issue | Verify `kubectl get ciliumnodes` and pfSense BGP config |
@@ -287,6 +478,12 @@ Most common issues and their solutions:
 | Storage issues | PV/PVC mismatch | Verify storage class and access modes |
 | GitHub runner not appearing | Authentication or permission issue | Check `kubectl logs deployment/github-runner -n github-actions` and verify secrets |
 | Runner jobs failing | Missing tools or permissions | Check runner logs and ensure required tools are installed in container |
+
+**Cluster Recovery:**
+- For persistent issues, use `./scripts/destroy-cluster.sh` followed by `./scripts/setup-complete.sh`
+- Scripts are configured for Raspberry Pi with `--wipe-mode user-disks` (safe for remote nodes)
+- Check all scripts have executable permissions: `chmod +x scripts/*.sh`
+- Verify node IP addresses in scripts match your actual hardware
 
 For more complex issues, check the monitoring dashboards first - they usually tell the story.
 
