@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: storage-test-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: storage-test-pod
+  namespace: default
+  labels:
+    app: storage-test
+spec:
+  containers:
+  - name: test-container
+    image: busybox:1.35
+    command:
+      - sleep
+      - "3600"
+    volumeMounts:
+    - name: test-volume
+      mountPath: /data
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+  volumes:
+  - name: test-volume
+    persistentVolumeClaim:
+      claimName: storage-test-pvc
+  restartPolicy: Never
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: storage-test-job
+  namespace: default
+spec:
+  template:
+    metadata:
+      labels:
+        app: storage-test-job
+    spec:
+      containers:
+      - name: test
+        image: busybox:1.35
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Testing storage functionality..."
+          echo "Current time: $(date)" > /data/test.txt
+          echo "Writing test data to /data/test.txt"
+          ls -la /data/
+          cat /data/test.txt
+          echo "Storage test completed successfully!"
+        volumeMounts:
+        - name: test-volume
+          mountPath: /data
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          fsGroup: 1000
+      volumes:
+      - name: test-volume
+        persistentVolumeClaim:
+          claimName: storage-test-pvc
+      restartPolicy: OnFailure
+  backoffLimit: 3

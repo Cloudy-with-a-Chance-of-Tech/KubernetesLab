@@ -20,7 +20,7 @@ commonLabels:
   environment: production
   layer: monitoring
   managed-by: kustomize
-  cluster: talos-homelab
+  cluster: kub
 
 # Namespace for monitoring stack
 namespace: monitoring
