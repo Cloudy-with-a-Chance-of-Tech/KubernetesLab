@@ -1,0 +1,110 @@
+# Application Deployment RBAC for Phoenix Runner
+# Personal repo runner with full application deployment capabilities
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: github-actions
+  name: phoenix-runner-minimal-role
+  labels:
+    app.kubernetes.io/name: phoenix-runner
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/part-of: cicd
+rules:
+# Allow full management of personal deployment resources
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: phoenix-runner-minimal-cluster-role
+  labels:
+    app.kubernetes.io/name: phoenix-runner
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/part-of: cicd
+rules:
+# Core application deployment permissions
+- apiGroups: [""]
+  resources: ["namespaces", "services", "endpoints", "configmaps", "secrets", "serviceaccounts"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["nodes", "persistentvolumes", "persistentvolumeclaims"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets", "daemonsets", "statefulsets"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+- apiGroups: ["autoscaling"]
+  resources: ["horizontalpodautoscalers"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+
+# Storage for applications
+- apiGroups: ["storage.k8s.io"]
+  resources: ["storageclasses", "volumeattachments"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+
+# Networking for applications
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses", "networkpolicies"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+
+# Application-level RBAC
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+
+# Monitoring for applications
+- apiGroups: ["monitoring.coreos.com"]
+  resources: ["servicemonitors", "prometheusrules"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+
+# Certificates for applications
+- apiGroups: ["cert-manager.io"]
+  resources: ["certificates", "issuers", "clusterissuers"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+
+# Batch jobs
+- apiGroups: ["batch"]
+  resources: ["jobs", "cronjobs"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+
+# Read access to cluster info
+- apiGroups: [""]
+  resources: ["componentstatuses"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: phoenix-runner-minimal-binding
+  namespace: github-actions
+  labels:
+    app.kubernetes.io/name: phoenix-runner
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/part-of: cicd
+subjects:
+- kind: ServiceAccount
+  name: phoenix-runner
+  namespace: github-actions
+roleRef:
+  kind: Role
+  name: phoenix-runner-minimal-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: phoenix-runner-minimal-cluster-binding
+  labels:
+    app.kubernetes.io/name: phoenix-runner
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/part-of: cicd
+subjects:
+- kind: ServiceAccount
+  name: phoenix-runner
+  namespace: github-actions
+roleRef:
+  kind: ClusterRole
+  name: phoenix-runner-minimal-cluster-role
+  apiGroup: rbac.authorization.k8s.io

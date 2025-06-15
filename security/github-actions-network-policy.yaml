@@ -1,0 +1,89 @@
+# GitHub Actions Network Policy - Security-first approach for Talos
+# Restricts network access for GitHub Actions runners to only necessary connections
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: github-actions-network-policy
+  namespace: github-actions
+  labels:
+    app.kubernetes.io/name: github-actions-network-policy
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: cicd
+spec:
+  podSelector: {}  # Apply to all pods in github-actions namespace
+  policyTypes:
+  - Ingress
+  - Egress
+  
+  ingress:
+  # Allow ingress from monitoring namespace for metrics collection
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8080  # Metrics port if exposed
+  
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  
+  # Allow HTTPS to GitHub APIs and container registries
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+  
+  # Allow HTTP for GitHub Actions (some legacy endpoints)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 80
+  
+  # Allow access to Kubernetes API server (for RBAC operations)
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: TCP
+      port: 6443
+  
+  # Block all other ingress/egress by default
+---
+# Network policy for monitoring access
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-monitoring-access
+  namespace: github-actions
+  labels:
+    app.kubernetes.io/name: allow-monitoring-access
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: runner
+  policyTypes:
+  - Ingress
+  
+  ingress:
+  # Allow Prometheus to scrape metrics from runners
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: prometheus
+    ports:
+    - protocol: TCP
+      port: 8080

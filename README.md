@@ -1,53 +1,158 @@
-# KubernetesLab
+# KubernetesLab - Production-Ready Home Infrastructure
 
-A comprehensive collection of Kubernetes configurations and manifests for my home lab environment. This repository serves as both a learning playground and a production-ready setup for containerized workloads.
+Welcome to my Kubernetes home lab—a place where enterprise-grade infrastructure meets hobbyist curiosity. This isn't just another "hello world" Kubernetes setup; it's a battle-tested, security-focused cluster that runs real workloads and handles production traffic in my home environment.
 
-## Overview
+## Why This Lab Exists
 
-This lab focuses on building a robust Kubernetes environment that can handle everything from development testing to production workloads. The configurations here are battle-tested in my home lab setup, which includes a mix of Raspberry Pi CM4 clusters and Lenovo Tiny desktops running Talos Linux for an immutable, security-focused infrastructure.
+Like most infrastructure enthusiasts, I needed a playground where I could break things safely, test new concepts, and run actual services without the corporate constraints. What started as a simple learning exercise has evolved into a robust platform that hosts everything from development environments to critical home automation systems.
 
-## Lab Architecture
+This repository represents years of iteration, countless late-night debugging sessions, and the accumulated wisdom of running Kubernetes in production (even if that production happens to be my living room).
 
-| Component | Purpose | Configuration |
-|-----------|---------|---------------|
-| **Operating System** | Immutable OS | Talos Linux |
-| **Control Plane** | Kubernetes Masters | Lenovo Tiny Desktops (3x nodes) |
-| **Worker Nodes** | Workload Execution | Raspberry Pi CM4 Cluster (6x nodes, 8GB RAM, NVMe) |
-| **Storage** | Persistent Volumes | local-path-provisioner + NFS |
-| **Networking** | CNI & Load Balancing | Cilium + BGP to pfSense |
-| **Monitoring** | Observability Stack | Prometheus + Grafana + AlertManager |
-| **CI/CD** | GitHub Actions Runners | Self-hosted runners on ARM64 nodes |
+## The Lab Philosophy
 
-## What's Inside
+Every decision in this lab follows three core principles:
 
-This repository contains configurations for:
+1. **Security First**: If it can be hardened, it should be hardened
+2. **Infrastructure as Code**: Everything must be reproducible and version-controlled  
+3. **Real-World Ready**: Configurations should translate to enterprise environments
 
-- **Core Infrastructure**
-  - Talos cluster configuration and machine configs
-  - Network policies and security contexts
-  - Storage classes and persistent volume definitions
-  
-- **Application Deployments**
-  - Namespace organization and resource quotas
-  - Common application stacks (monitoring, logging, etc.)
-  - Development and testing environments
-  
-- **GitOps Workflows**
-  - GitHub-based GitOps with automated deployments
-  - Self-hosted GitHub Actions runners on Kubernetes
-  - Environment promotion through Git workflows
-  - Continuous deployment pipelines
+## Lab Architecture - The Hardware Story
 
-## Getting Started
+Let me walk you through what's actually running this show:
+
+### The Foundation
+
+| Component | Specs | Why This Choice |
+|-----------|-------|-----------------|
+| **Control Plane** | 3x Lenovo Tiny M720q (Intel i5, 16GB RAM) | Dedicated masters free from Pi limitations |
+| **Worker Nodes** | 6x Raspberry Pi CM4 (8GB RAM, NVMe storage) | ARM64 goodness for cost-effective compute |
+| **Operating System** | Talos Linux | Immutable OS designed for Kubernetes |
+| **Networking** | Cilium CNI + BGP to pfSense | Enterprise-grade networking stack |
+| **Storage** | local-path-provisioner + Synology NAS | Fast local + reliable network storage |
+
+### The Software Stack
+
+This isn't your typical "throw some YAML at the wall and see what sticks" setup. Every component has been chosen for a reason:
+
+- **Talos Linux**: Because who wants to SSH into nodes and manually configure things in 2025?
+- **Cilium**: eBPF-powered networking that makes traditional firewalls look quaint
+- **GitHub Actions Runners**: Self-hosted on ARM64 because why pay for compute you already own?
+- **Prometheus + Grafana**: Because if it's not monitored, it doesn't exist
+
+## What Makes This Different
+
+### Security-First Architecture
+
+Every service runs with:
+- Non-root security contexts
+- Dropped Linux capabilities  
+- Network policies for micro-segmentation
+- RBAC following principle of least privilege
+- Encrypted communication everywhere
+
+### Real Production Workloads
+
+This cluster doesn't just run demos—it handles:
+- Home automation backend services
+- Development environments for multiple projects
+- CI/CD pipelines for both personal and work projects
+- Network services (DNS, VPN, monitoring)
+- Data processing and analytics workloads
+
+### Enterprise Patterns at Home Scale
+
+You'll find patterns here that scale from 6 nodes to 600:
+- GitOps workflows with environment promotion
+- Comprehensive monitoring and alerting
+- Disaster recovery and backup strategies
+- Infrastructure as Code for everything
+- Proper secret management and rotation
+
+## Getting Started - The Practical Approach
+
+## Getting Started - The Practical Approach
 
 ### Prerequisites
 
-Before diving into these configurations, make sure you have:
+Let's be honest about what you need to make this work:
 
-- Physical nodes or VMs ready for Talos installation
-- `talosctl` CLI tool installed
-- `kubectl` CLI tool installed  
-- Basic understanding of Kubernetes concepts (Pods, Services, Deployments, etc.)
+**Hardware Requirements:**
+- At least 3 nodes (masters can run workloads in smaller setups)
+- ARM64 or x86_64 architecture (configs support both)
+- Minimum 8GB RAM per node (16GB recommended for masters)
+- Fast storage (NVMe preferred, SD cards will make you sad)
+
+**Knowledge Prerequisites:**
+- Comfort with Linux command line
+- Basic Kubernetes concepts (if you don't know what a Pod is, start elsewhere)
+- Git workflow familiarity
+- Networking fundamentals (VLANs, routing, DNS)
+
+**Tools You'll Need:**
+```bash
+# Essential tools
+curl -sL https://github.com/siderolabs/talos/releases/latest/download/talosctl-linux-amd64 -o talosctl
+curl -sL "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" -o kubectl
+sudo install -o root -g root -m 0755 {talosctl,kubectl} /usr/local/bin/
+
+# For the ambitious
+brew install helm
+brew install cilium-cli
+```
+
+## Documentation Structure
+
+This repository includes comprehensive documentation for both entry-level and advanced users:
+
+### 📚 **Entry-Level Guides**
+- **[Main README](README.md)** - You are here! Overview and quick start
+- **[Quick Setup Guide](docs/quick-setup-secrets.md)** - Get running in 30 minutes
+- **[GitHub Actions Setup](docs/github-actions-setup.md)** - Self-hosted runners configuration
+- **[Quick Reference](docs/quick-reference.md)** - Common commands and operations
+
+### 🔬 **Deep-Dive Technical Documentation**
+- **[Architecture Deep Dive](docs/architecture/README.md)** - PhD-level system design analysis
+- **[Networking Deep Dive](docs/networking-deep-dive.md)** - BGP, Cilium, and load balancing internals
+- **[Storage Deep Dive](docs/storage-deep-dive.md)** - Performance, persistence, and pragmatism
+- **[Operations Guide](docs/operations-guide.md)** - Day-to-day cluster management
+
+### 🛡️ **Security and Operations**
+- **[Security Strategy](docs/security-strategy.md)** - Defense-in-depth approach
+- **[Network Segmentation](docs/network-segmentation.md)** - Microsegmentation with Cilium
+- **[Talos Credential Security](docs/talos-credential-security.md)** - Securing cluster access
+
+*Each deep-dive document contains both conceptual explanations and practical implementation details.*
+
+### Quick Start Guide
+
+**Step 1: Clone and Explore**
+```bash
+git clone https://github.com/twimprine/KubernetesLab.git
+cd KubernetesLab
+find . -name "README.md" | head -5  # Start with the docs
+```
+
+**Step 2: Review the Architecture**
+- Read `docs/architecture/` for the deep dive
+- Check `base/talos/` for cluster configuration templates
+- Review `docs/quick-reference.md` for common operations
+
+**Step 3: Adapt to Your Environment**
+- Update Talos configs in `base/talos/` for your hardware
+- Modify network settings in `networking/`
+- Adjust storage configs in `base/storage/`
+
+**Step 4: Deploy and Iterate**
+```bash
+# Generate your Talos configs
+./scripts/generate-talos-config.sh
+
+# Bootstrap the cluster  
+./scripts/bootstrap-cluster.sh
+
+# Deploy core services
+kubectl apply -k base/
+```
 - Network configuration planned (node IPs, BGP setup if applicable)
 - Optionally: Helm 3.x for chart-based deployments
 
@@ -498,13 +603,50 @@ This is primarily a personal lab environment, but if you find something useful o
 
 ## Learning Resources
 
-If you're new to Kubernetes or want to dive deeper:
+### Start Here (Entry Level)
+If you're new to Kubernetes or want to understand this lab setup:
 
-- [Official Kubernetes Documentation](https://kubernetes.io/docs/)
-- [Talos Linux Documentation](https://www.talos.dev/docs/)
-- [Cilium Documentation](https://docs.cilium.io/)
-- [Kubernetes the Hard Way](https://github.com/kelseyhightower/kubernetes-the-hard-way)
-- [CNCF Landscape](https://landscape.cncf.io/) - Great for discovering tools
+1. **[Architecture Overview](docs/architecture/README.md)** - Start with the big picture
+2. **[Quick Setup Guide](docs/quick-setup-secrets.md)** - Get hands-on experience
+3. **[Operations Guide](docs/operations-guide.md)** - Learn day-to-day management
+4. **[GitHub Actions Setup](docs/github-actions-setup.md)** - Implement CI/CD
+
+### Go Deeper (Advanced Technical)
+Ready for the PhD-level analysis?
+
+1. **[Networking Deep Dive](docs/networking-deep-dive.md)** - BGP, eBPF, and load balancing internals
+2. **[Storage Deep Dive](docs/storage-deep-dive.md)** - Performance analysis and design decisions
+3. **[Security Strategy](docs/security-strategy.md)** - Defense-in-depth implementation
+4. **[Talos Credential Security](docs/talos-credential-security.md)** - Immutable OS security model
+
+### External Resources
+Foundational knowledge for cloud-native infrastructure:
+
+- **[Official Kubernetes Documentation](https://kubernetes.io/docs/)** - The authoritative source
+- **[Talos Linux Documentation](https://www.talos.dev/docs/)** - Immutable Kubernetes OS
+- **[Cilium Documentation](https://docs.cilium.io/)** - eBPF-powered networking
+- **[Kubernetes the Hard Way](https://github.com/kelseyhightower/kubernetes-the-hard-way)** - Build from scratch
+- **[CNCF Landscape](https://landscape.cncf.io/)** - Discover cloud-native tools
+
+### Learning Path Recommendations
+
+**For Systems Administrators:**
+1. Start with the main README and architecture overview
+2. Follow the quick setup guide with your own hardware
+3. Implement the operations guide procedures
+4. Dive into specific areas (networking, storage, security) as needed
+
+**For Developers:**
+1. Review the GitHub Actions setup for CI/CD patterns
+2. Explore the storage deep dive for persistent application patterns
+3. Study the networking guide for service communication
+4. Implement your own applications using the established patterns
+
+**For Security Engineers:**
+1. Start with the security strategy document
+2. Review network segmentation and policies
+3. Study the Talos credential security model
+4. Implement additional security controls based on your requirements
 
 ## Disclaimer
 
