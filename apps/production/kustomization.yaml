@@ -10,6 +10,7 @@ metadata:
 # Production application resources
 resources:
   - github-runner.yaml
+  - phoenix-runner.yaml
   # Add more production applications here as you build them
   # - prometheus.yaml
   # - grafana.yaml

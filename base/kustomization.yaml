@@ -13,6 +13,7 @@ resources:
   - namespaces/monitoring.yaml
   - namespaces/environments.yaml
   - rbac/github-runner-rbac.yaml
+  - rbac/phoenix-runner-rbac.yaml
   - storage/
   # Add more base resources as needed
   # Note: Talos machine configs are managed by scripts and contain secrets

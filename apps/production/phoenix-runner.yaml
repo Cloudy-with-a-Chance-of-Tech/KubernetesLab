@@ -1,0 +1,264 @@
+# Phoenix GitHub Actions Runner Deployment
+# Configured for personal repository with codename: Phoenix
+# Talos-compatible security contexts and filesystem configurations
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: phoenix-runner
+  namespace: github-actions
+  labels:
+    app.kubernetes.io/name: phoenix-runner
+    app.kubernetes.io/component: runner
+    app.kubernetes.io/part-of: cicd
+    app.kubernetes.io/version: "2.321.0"
+    app.kubernetes.io/instance: personal-repo
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: phoenix-runner
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: phoenix-runner
+        app.kubernetes.io/component: runner
+        app.kubernetes.io/part-of: cicd
+        app.kubernetes.io/instance: personal-repo
+    spec:
+      serviceAccountName: phoenix-runner
+      securityContext:
+        # Talos-compatible security contexts
+        runAsNonRoot: false  # GitHub runner needs root for Docker operations
+        runAsUser: 0
+        runAsGroup: 0
+        fsGroup: 0
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: runner
+        image: myoung34/github-runner:latest
+        imagePullPolicy: Always
+        securityContext:
+          # Talos security requirements
+          privileged: false  # Avoid privileged where possible
+          runAsUser: 0
+          runAsGroup: 0
+          allowPrivilegeEscalation: true  # Required for Docker operations
+          readOnlyRootFilesystem: false  # GitHub runner needs write access
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - CHOWN
+            - DAC_OVERRIDE
+            - FOWNER
+            - SETGID
+            - SETUID
+            - NET_BIND_SERVICE
+        env:
+        - name: ACCESS_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: phoenix-runner-secret
+              key: github-token
+        - name: REPO_URL
+          valueFrom:
+            secretKeyRef:
+              name: phoenix-runner-secret
+              key: repo-url
+        - name: RUNNER_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: RUNNER_NAME_PREFIX
+          value: "phoenix-k8s"
+        - name: RUNNER_WORKDIR
+          value: "/tmp/runner"
+        - name: DISABLE_AUTO_UPDATE
+          value: "false"
+        - name: RUNNER_SCOPE
+          value: "repo"
+        - name: LABELS
+          value: "kubernetes,talos,cilium,homelab,arm64,phoenix"
+        - name: EPHEMERAL
+          value: "1"
+        - name: RUNNER_ALLOW_RUNASROOT
+          value: "1"
+        - name: ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT
+          value: "1"
+        - name: RUNNER_TOOL_CACHE
+          value: "/tmp/tool-cache"
+        # Talos-specific configurations
+        - name: DOCKER_HOST
+          value: "unix:///var/run/docker.sock"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: runner-work
+          mountPath: /tmp/runner
+        - name: tmp
+          mountPath: /tmp
+        - name: tool-cache
+          mountPath: /tmp/tool-cache
+        # Mount Docker socket for container operations (Talos compatible)
+        - name: docker-sock
+          mountPath: /var/run/docker.sock
+          readOnly: false
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - "/bin/sh"
+              - "-c"
+              - "sleep 15"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - ps aux | grep -v grep | grep Runner.Listener
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - ps aux | grep -v grep | grep Runner.Listener
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: runner-work
+        emptyDir:
+          sizeLimit: 10Gi
+      - name: tmp
+        emptyDir:
+          sizeLimit: 2Gi
+      - name: tool-cache
+        emptyDir:
+          sizeLimit: 5Gi
+      # Docker socket access for Talos
+      - name: docker-sock
+        hostPath:
+          path: /var/run/docker.sock
+          type: Socket
+      # Talos node compatibility
+      nodeSelector:
+        kubernetes.io/arch: arm64  # For Raspberry Pi CM4 nodes
+        kubernetes.io/os: linux
+      tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+      # Ensure runners don't run on same node
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                  - phoenix-runner
+              topologyKey: kubernetes.io/hostname
+      terminationGracePeriodSeconds: 30
+---
+# Service for monitoring and debugging
+apiVersion: v1
+kind: Service
+metadata:
+  name: phoenix-runner-svc
+  namespace: github-actions
+  labels:
+    app.kubernetes.io/name: phoenix-runner
+    app.kubernetes.io/component: service
+    app.kubernetes.io/part-of: cicd
+    app.kubernetes.io/instance: personal-repo
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: phoenix-runner
+  ports:
+  - name: metrics
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+---
+# HorizontalPodAutoscaler for dynamic scaling
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: phoenix-runner-hpa
+  namespace: github-actions
+  labels:
+    app.kubernetes.io/name: phoenix-runner
+    app.kubernetes.io/component: autoscaler
+    app.kubernetes.io/part-of: cicd
+    app.kubernetes.io/instance: personal-repo
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: phoenix-runner
+  minReplicas: 1
+  maxReplicas: 3  # Lower max for personal repo
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+---
+# PodDisruptionBudget for availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: phoenix-runner-pdb
+  namespace: github-actions
+  labels:
+    app.kubernetes.io/name: phoenix-runner
+    app.kubernetes.io/component: pdb
+    app.kubernetes.io/part-of: cicd
+    app.kubernetes.io/instance: personal-repo
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: phoenix-runner
