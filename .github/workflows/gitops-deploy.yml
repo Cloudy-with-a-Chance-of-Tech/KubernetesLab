@@ -110,15 +110,15 @@ jobs:
       - name: 'Deploy Production Applications'
         env:
           # GitHub runner secrets injected from GitHub Actions secrets
-          GITHUB_TOKEN: ${{ secrets.RUNNER_TOKEN }}
-          GITHUB_ORG: ${{ secrets.ORG_NAME }}
+          ORG_RUNNER_TOKEN: ${{ secrets.RUNNER_TOKEN }}
+          ORG_RUNNER_NAME: ${{ secrets.ORG_NAME }}
           GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
         run: |
           # Create actual secrets from GitHub Actions secrets (not templates)
           kubectl create secret generic github-runner-secret \
-            --from-literal=github-token="$GITHUB_TOKEN" \
+            --from-literal=github-token="$ORG_RUNNER_TOKEN" \
             --from-literal=runner-name="k8s-runner" \
-            --from-literal=github-org="$GITHUB_ORG" \
+            --from-literal=github-org="$ORG_RUNNER_NAME" \
             --namespace=github-actions \
             --dry-run=client -o yaml | kubectl apply -f -
           
