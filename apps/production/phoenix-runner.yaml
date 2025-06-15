@@ -34,10 +34,10 @@ spec:
       serviceAccountName: phoenix-runner
       securityContext:
         # Talos-compatible security contexts
-        runAsNonRoot: false  # GitHub runner needs root for Docker operations
-        runAsUser: 0
-        runAsGroup: 0
-        fsGroup: 0
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -45,22 +45,15 @@ spec:
         image: myoung34/github-runner:latest
         imagePullPolicy: Always
         securityContext:
-          # Talos security requirements
-          privileged: false  # Avoid privileged where possible
-          runAsUser: 0
-          runAsGroup: 0
-          allowPrivilegeEscalation: true  # Required for Docker operations
+          # Talos security requirements - GitHub runner needs write access
+          privileged: false
+          runAsUser: 1001  # Non-root user
+          runAsGroup: 1001
+          allowPrivilegeEscalation: false
           readOnlyRootFilesystem: false  # GitHub runner needs write access
           capabilities:
             drop:
             - ALL
-            add:
-            - CHOWN
-            - DAC_OVERRIDE
-            - FOWNER
-            - SETGID
-            - SETUID
-            - NET_BIND_SERVICE
         env:
         - name: ACCESS_TOKEN
           valueFrom:
@@ -88,15 +81,11 @@ spec:
           value: "kubernetes,talos,cilium,homelab,arm64,phoenix"
         - name: EPHEMERAL
           value: "1"
-        - name: RUNNER_ALLOW_RUNASROOT
-          value: "1"
+        - name: RUN_AS_ROOT
+          value: "false"
         - name: ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT
           value: "1"
-        - name: RUNNER_TOOL_CACHE
-          value: "/tmp/tool-cache"
         # Talos-specific configurations
-        - name: DOCKER_HOST
-          value: "unix:///var/run/docker.sock"
         resources:
           requests:
             memory: "512Mi"
@@ -111,10 +100,6 @@ spec:
           mountPath: /tmp
         - name: tool-cache
           mountPath: /tmp/tool-cache
-        # Mount Docker socket for container operations (Talos compatible)
-        - name: docker-sock
-          mountPath: /var/run/docker.sock
-          readOnly: false
         lifecycle:
           preStop:
             exec:
@@ -152,11 +137,6 @@ spec:
       - name: tool-cache
         emptyDir:
           sizeLimit: 5Gi
-      # Docker socket access for Talos
-      - name: docker-sock
-        hostPath:
-          path: /var/run/docker.sock
-          type: Socket
       # Talos node compatibility
       nodeSelector:
         kubernetes.io/arch: arm64  # For Raspberry Pi CM4 nodes

@@ -29,11 +29,11 @@ spec:
     spec:
       serviceAccountName: github-runner
       securityContext:
-        # Talos-compatible security contexts - allow root for GitHub runner
-        runAsNonRoot: false
-        runAsUser: 0
-        runAsGroup: 0
-        fsGroup: 0
+        # Talos-compatible security contexts - non-root for security
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -41,9 +41,14 @@ spec:
         image: myoung34/github-runner:latest
         imagePullPolicy: Always
         securityContext:
-          privileged: true
-          runAsUser: 0
-          runAsGroup: 0
+          privileged: false
+          runAsUser: 1001
+          runAsGroup: 1001
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
         env:
         - name: ACCESS_TOKEN
           valueFrom:
@@ -67,8 +72,8 @@ spec:
           value: "kubernetes,talos,cilium,homelab,arm64"
         - name: EPHEMERAL
           value: "1"
-        - name: RUNNER_ALLOW_RUNASROOT
-          value: "1"
+        - name: RUN_AS_ROOT
+          value: "false"
         - name: ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT
           value: "1"
         - name: RUNNER_TOOL_CACHE

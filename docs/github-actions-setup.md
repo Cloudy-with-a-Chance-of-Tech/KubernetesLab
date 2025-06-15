@@ -1,27 +1,127 @@
-# GitHub Actions Self-Hosted Runner Setup
+# GitHub Actions Self-Hosted Runners Setup Guide
 
-This guide walks through setting up self-hosted GitHub Actions runners in your Talos Kubernetes cluster.
+*Because why pay for GitHub Actions minutes when you have perfectly good compute sitting in your home lab?*
 
-## Overview
+## The Story
 
-The GitHub runner setup consists of:
-- **Namespace**: `github-actions` with resource quotas
-- **RBAC**: ServiceAccount with cluster-wide permissions for GitOps
-- **Secret**: Stores GitHub token and configuration
-- **Deployment**: Runs the GitHub Actions runner containers
-- **HPA**: Auto-scales runners based on CPU/memory usage
-- **PDB**: Ensures high availability during updates
+Like most infrastructure enthusiasts, I quickly discovered that GitHub's hosted runners have some limitations:
+- They're expensive for heavy workloads
+- No direct access to your internal infrastructure  
+- Limited customization options
+- ARM64 support is... let's call it "emerging"
+
+Self-hosted runners solve all these problems, but they come with their own challenges. This guide walks you through setting up production-ready, secure, self-hosted GitHub Actions runners on your Kubernetes cluster.
+
+## Architecture Overview
+
+Here's what we're building:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      GitHub Actions                              │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌──────────────┐ │
+│  │   Workflow      │    │   Workflow      │    │   Workflow   │ │
+│  │   (Org Repo)    │    │   (Personal)    │    │   (Other)    │ │
+│  └─────────────────┘    └─────────────────┘    └──────────────┘ │
+│           │                       │                     │       │
+│           └───────────────────────┼─────────────────────┘       │
+│                                   │                             │
+└─────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ HTTPS/REST API
+                                    │
+┌─────────────────────────────────────────────────────────────────┐
+│                 Kubernetes Cluster                               │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │                github-actions namespace                     ││
+│  │                                                             ││
+│  │  ┌─────────────────┐    ┌─────────────────┐                ││
+│  │  │ Organization    │    │ Phoenix         │                ││
+│  │  │ Runner          │    │ Runner          │                ││
+│  │  │ (Full RBAC)     │    │ (App RBAC)      │                ││
+│  │  │                 │    │                 │                ││
+│  │  │ - Infra Mgmt    │    │ - App Deploy    │                ││
+│  │  │ - Storage       │    │ - Testing       │                ││
+│  │  │ - Networking    │    │ - Monitoring    │                ││
+│  │  │ - RBAC Admin    │    │                 │                ││
+│  │  └─────────────────┘    └─────────────────┘                ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │                  Security Layer                             ││
+│  │  - Network Policies (Egress Control)                       ││
+│  │  - RBAC (Principle of Least Privilege)                     ││
+│  │  - Security Contexts (Non-root, Capabilities Dropped)      ││
+│  │  - Resource Limits (CPU/Memory)                            ││
+│  └─────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Why Two Runners?
+
+After years of running self-hosted runners, I've learned that one size doesn't fit all:
+
+### Organization Runner (Full Infrastructure Access)
+- **Purpose**: Infrastructure-as-Code deployments
+- **RBAC**: Cluster-admin level permissions
+- **Use Cases**: 
+  - Deploying storage configurations
+  - Managing network policies
+  - Updating RBAC configurations
+  - Installing cluster-wide resources
+
+### Phoenix Runner (Application-Focused)
+- **Purpose**: Application deployments and testing
+- **RBAC**: Namespace-scoped permissions
+- **Use Cases**:
+  - Deploying applications
+  - Running tests
+  - Managing application secrets
+  - Monitoring application health
+
+This separation follows the principle of least privilege and reduces the blast radius if something goes wrong.
 
 ## Prerequisites
 
-1. **GitHub Personal Access Token** with the following scopes:
-   - `repo` (for private repositories)
-   - `admin:org` (for organization-level runners)
-   - `workflow` (to manage workflow runs)
+Before setting up the runners, you'll need:
 
-2. **Talos Kubernetes Cluster** running with:
-   - Cilium CNI configured
-   - Container runtime accessible (`/var/run/docker.sock`)
+### GitHub Setup
+1. **Personal Access Token** with scopes:
+   - `repo` (full repository access)
+   - `admin:org` (organization administration)
+   - `workflow` (workflow management)
+
+2. **Organization Settings** (if using org runner):
+   - Navigate to Organization → Settings → Actions → Runners
+   - Note the registration URL and token (we'll automate this)
+
+### Kubernetes Prerequisites
+```bash
+# Verify cluster is ready
+kubectl get nodes
+kubectl get ns github-actions || kubectl create ns github-actions
+
+# Verify RBAC is configured
+kubectl auth can-i create clusterroles --as=system:serviceaccount:github-actions:github-runner
+```
+
+### Required Secrets
+
+Let's create the secrets both runners need:
+
+```bash
+# GitHub token for runner registration
+kubectl create secret generic github-runner-secret \
+  --from-literal=github-token="<REDACTED_GITHUB_TOKEN>" \
+  --from-literal=runner-name="org-runner" \
+  -n github-actions
+
+kubectl create secret generic phoenix-runner-secret \
+  --from-literal=github-token="<REDACTED_GITHUB_TOKEN>" \
+  --from-literal=runner-name="phoenix-runner" \
+  -n github-actions
+```
 
 ## Setup Instructions
 
@@ -48,97 +148,149 @@ Before deploying, you must configure the required secrets in your GitHub reposit
 **Important:** 
 - Never use secret names that start with `GITHUB_` as GitHub Actions restricts these
 - Store these values securely and rotate them regularly
-- The `RUNNER_TOKEN` should have minimal required permissions
+### Step 3: Deploy RBAC Configurations
 
-### Step 3: Update the Secret Templates
-
-The secret templates in the `security/` directory are for reference only and contain placeholders:
+First, let's set up the permission boundaries:
 
 ```bash
-# Navigate to the repository
-cd /home/thomas/Repositories/personal/KubernetesLab
+# Deploy minimal RBAC for Phoenix runner
+kubectl apply -f base/rbac/phoenix-runner-minimal-rbac.yaml
 
-# Generate base64 encoded token
-echo -n "your-github-token-here" | base64
-
-# Update the secret file
-vim security/github-runner-secret.yaml
+# Deploy full RBAC for organization runner  
+kubectl apply -f base/rbac/github-runner-minimal-rbac.yaml
 ```
 
-Replace `REPLACE_WITH_BASE64_ENCODED_TOKEN` with your actual base64-encoded token.
+Let's examine what these RBAC configs actually allow:
 
-### Step 4: Deploy the Runner Infrastructure
+**Phoenix Runner (Application-Scoped):**
+```yaml
+# Can manage applications but not infrastructure
+rules:
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets", "statefulsets"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["services", "configmaps", "secrets", "persistentvolumeclaims"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+# No cluster-level resources
+```
 
-Apply the base infrastructure manually first, then use GitOps for application deployment:
+**Organization Runner (Infrastructure-Scoped):**
+```yaml
+# Can manage cluster infrastructure
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+# This is cluster-admin level - use with caution
+```
+
+### Step 4: Deploy Network Policies
+
+Security first - let's lock down network access:
 
 ```bash
-# 1. Create namespaces and RBAC (one-time setup)
-kubectl apply -f base/namespaces/
-kubectl apply -f base/rbac/
-
-# 2. Push to main branch to trigger GitOps deployment
-git add .
-git commit -m "Configure GitHub Actions secrets"
-git push origin main
+kubectl apply -f security/github-actions-network-policy.yaml
 ```
 
-The GitHub Actions workflow will automatically:
-- Create secrets from repository secrets
-- Deploy the runner applications
-- Set up monitoring and networking
+This policy:
+- Allows outbound HTTPS to GitHub APIs
+- Allows DNS resolution
+- Allows access to Kubernetes API server
+- Denies everything else
 
-### Step 5: Verify Deployment
+### Step 5: Deploy the Runners
 
-Check that everything is running correctly:
+Now for the main event:
 
 ```bash
-# Check namespace and pods
-kubectl get pods -n github-actions
+# Deploy organization runner
+kubectl apply -f apps/production/github-runner.yaml
 
-# Check runner logs
-kubectl logs -n github-actions deployment/github-runner
-
-# Check HPA status
-kubectl get hpa -n github-actions
-
-# Check PDB status
-kubectl get pdb -n github-actions
+# Deploy Phoenix runner  
+kubectl apply -f apps/production/phoenix-runner.yaml
 ```
 
-## Configuration Details
+### Step 6: Verify Deployment
+
+Let's make sure everything is working:
+
+```bash
+# Check pod status
+kubectl get pods -n github-actions -w
+
+# Check logs for successful registration
+kubectl logs -f deployment/github-runner -n github-actions
+kubectl logs -f deployment/phoenix-runner -n github-actions
+
+# Verify runners appear in GitHub
+# Organization Settings → Actions → Runners
+# Should show both runners with "Idle" status
+```
+
+## Configuration Deep Dive
+
+### Runner Environment
+
+Each runner comes pre-configured with essential tools:
+
+```dockerfile
+# Base tools included in runner image
+- Docker (for container builds)
+- kubectl (for Kubernetes management)  
+- helm (for chart deployments)
+- git (for repository operations)
+- curl, jq, wget (for API interactions)
+- Custom tools via init containers
+```
+
+### Environment Variables
+
+Key environment variables that control runner behavior:
+
+```yaml
+env:
+- name: RUNNER_NAME_PREFIX
+  value: "k8s-runner"
+- name: RUNNER_WORKDIR
+  value: "/tmp/github-runner"
+- name: LABELS
+  value: "kubernetes,talos,cilium,homelab,arm64,self-hosted"
+- name: EPHEMERAL
+  value: "true"  # Fresh environment per job
+```
+
+### Resource Allocation
+
+Carefully tuned based on workload patterns:
+
+```yaml
+# Organization runner (infrastructure workloads)
+resources:
+  requests:
+    memory: "2Gi"    # Terraform/Ansible needs memory
+    cpu: "1000m"     # Infrastructure deployments are CPU-intensive
+  limits:
+    memory: "4Gi"    # Allow bursts for large deployments
+    cpu: "2000m"
+
+# Phoenix runner (application workloads)  
+resources:
+  requests:
+    memory: "1Gi"    # Application builds are lighter
+    cpu: "500m"
+  limits:
+    memory: "2Gi"    # Sufficient for most app workloads
+    cpu: "1500m"
+```
 
 ### Security Features
 
-- **Non-root execution**: Runs as user/group 1000
-- **Read-only root filesystem**: Where possible (runner needs some write access)
+- **Non-root execution**: Runs as user/group 10001
 - **Dropped capabilities**: All unnecessary Linux capabilities removed
-- **Seccomp profile**: Runtime default security profile
-- **Network policies**: Restrict network access (configure in networking/)
-
-### Resource Management
-
-- **Requests**: 250m CPU, 512Mi memory per runner
-- **Limits**: 1000m CPU, 2Gi memory per runner
-- **Auto-scaling**: 1-5 replicas based on CPU/memory usage
-- **Ephemeral runners**: Automatically destroyed after job completion
-
-### Talos Compatibility
-
-- **Security contexts**: Compatible with Talos security model
-- **Host path access**: Limited to Docker socket only
-- **Node selectors**: Targets ARM64 nodes (Raspberry Pi CM4)
-- **Tolerations**: Can run on control plane nodes if needed
-
-### Labels and Targeting
-
-Runners are configured with the following labels:
-- `kubernetes`
-- `talos`
-- `cilium`
-- `homelab`
-- `arm64`
-
-Use these in your workflow files:
+- **Read-only root filesystem**: Where possible (runner needs some write access)
+- **Network policies**: Restrict network access to essential services only
+- **RBAC boundaries**: Principle of least privilege enforced
 
 ```yaml
 jobs:
