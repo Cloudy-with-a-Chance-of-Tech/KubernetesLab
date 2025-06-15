@@ -58,10 +58,9 @@ jobs:
           # Install kube-score
           wget -O kube-score https://github.com/zegl/kube-score/releases/download/v1.17.0/kube-score_1.17.0_linux_arm64
           chmod +x kube-score
-          sudo mv kube-score /usr/local/bin/
           
           # Lint all manifests (excluding non-K8s files)
-          find . -name "*.yaml" -o -name "*.yml" | grep -vE "\.github/workflows|base/talos|kustomization\.yaml|external-secrets" | xargs kube-score score --output-format ci
+          find . -name "*.yaml" -o -name "*.yml" | grep -vE "\.github/workflows|base/talos|kustomization\.yaml|external-secrets" | xargs ./kube-score score --output-format ci
 
   deploy-staging:
     name: 'Deploy to Staging'
