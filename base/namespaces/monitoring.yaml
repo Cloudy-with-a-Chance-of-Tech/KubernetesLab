@@ -1,4 +1,5 @@
 # Monitoring namespace
+# Updated to test workflow validation fix
 apiVersion: v1
 kind: Namespace
 metadata:
