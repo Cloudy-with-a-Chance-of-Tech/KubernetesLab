@@ -52,8 +52,8 @@ load_env_vars() {
         fi
         
         # Check required variables
-        if [ -z "${GITHUB_TOKEN:-}" ]; then
-            error "GITHUB_TOKEN environment variable is required"
+        if [ -z "${PHOENIX_RUNNER_TOKEN:-}" ]; then
+            error "PHOENIX_RUNNER_TOKEN environment variable is required"
         fi
         
         if [ -z "${PHOENIX_REPO_URL:-}" ]; then
@@ -65,8 +65,8 @@ load_env_vars() {
         log "Using GitHub Actions environment variables"
         
         # Check required variables
-        if [ -z "${GITHUB_TOKEN:-}" ]; then
-            error "GITHUB_TOKEN secret is required in GitHub Actions"
+        if [ -z "${PHOENIX_RUNNER_TOKEN:-}" ]; then
+            error "PHOENIX_RUNNER_TOKEN secret is required in GitHub Actions"
         fi
         
         if [ -z "${PHOENIX_REPO_URL:-}" ]; then
@@ -106,7 +106,7 @@ create_secret() {
     # Create new secret
     kubectl create secret generic "${RUNNER_NAME}-secret" \
         --namespace="$NAMESPACE" \
-        --from-literal=github-token="$GITHUB_TOKEN" \
+        --from-literal=github-token="$PHOENIX_RUNNER_TOKEN" \
         --from-literal=runner-name="phoenix-k8s-runner" \
         --from-literal=repo-url="$PHOENIX_REPO_URL"
     
@@ -213,7 +213,7 @@ Modes:
   github    - GitHub Actions (uses environment variables)
 
 Environment Variables Required:
-  GITHUB_TOKEN - GitHub Personal Access Token with repo scope
+  PHOENIX_RUNNER_TOKEN - GitHub Personal Access Token with repo scope
   PHOENIX_REPO_URL - Full repository URL (https://github.com/username/repo)
 
 Examples:

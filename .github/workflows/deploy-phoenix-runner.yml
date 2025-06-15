@@ -1,0 +1,82 @@
+name: Deploy Phoenix Runner
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+        - deploy
+        - redeploy
+        - destroy
+  push:
+    paths:
+    - 'apps/production/phoenix-runner.yaml'
+    - 'base/rbac/phoenix-runner-rbac.yaml'
+    - '.github/workflows/deploy-phoenix-runner.yml'
+    branches:
+    - main
+
+env:
+  KUBE_NAMESPACE: github-actions
+  RUNNER_NAME: phoenix-runner
+
+jobs:
+  deploy-runner:
+    runs-on: [self-hosted, kubernetes, talos]  # Use existing org runner to deploy personal runner
+    if: github.event.inputs.action != 'destroy'
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Verify cluster access
+      run: |
+        kubectl cluster-info
+        kubectl get nodes
+    
+    - name: Deploy Phoenix Runner
+      env:
+        PHOENIX_RUNNER_TOKEN: ${{ secrets.PHOENIX_RUNNER_TOKEN }}
+        PHOENIX_REPO_URL: ${{ secrets.PHOENIX_REPO_URL }}
+      run: |
+        # Use the deployment script
+        chmod +x scripts/deploy-phoenix-runner.sh
+        scripts/deploy-phoenix-runner.sh github
+    
+    - name: Verify deployment
+      run: |
+        echo "Waiting for runner to be ready..."
+        kubectl wait --for=condition=available deployment/$RUNNER_NAME -n $KUBE_NAMESPACE --timeout=300s
+        
+        echo "Checking runner status..."
+        kubectl get pods -n $KUBE_NAMESPACE -l app.kubernetes.io/name=$RUNNER_NAME
+        
+        echo "Recent logs:"
+        kubectl logs -n $KUBE_NAMESPACE deployment/$RUNNER_NAME --tail=10
+    
+    - name: Test runner registration
+      run: |
+        echo "Runner should now be visible in your personal repository settings"
+        echo "Check: Your repository → Settings → Actions → Runners"
+
+  destroy-runner:
+    runs-on: [self-hosted, kubernetes, talos]
+    if: github.event.inputs.action == 'destroy'
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Remove Phoenix Runner
+      run: |
+        echo "Removing Phoenix runner deployment..."
+        kubectl delete -f apps/production/phoenix-runner.yaml --ignore-not-found=true
+        
+        echo "Removing secrets..."
+        kubectl delete secret ${RUNNER_NAME}-secret -n $KUBE_NAMESPACE --ignore-not-found=true
+        
+        echo "Phoenix runner removed successfully"
