@@ -5,11 +5,9 @@ metadata:
   name: test-loadbalancer
   namespace: default
   labels:
-    environment: production
     advertise: "bgp"
 spec:
   type: LoadBalancer
-  loadBalancerClass: "cilium"
   ports:
   - port: 80
     targetPort: 80

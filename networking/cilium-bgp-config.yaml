@@ -21,12 +21,9 @@ spec:
   - localASN: 64513  # Match what's configured in pfSense (was 64512)
     exportPodCIDR: false  # Set to false since using tunnel mode
     serviceSelector:
-      matchExpressions:
-      # Select all LoadBalancer services for BGP advertisement
-      - key: io.cilium/lb-ipam
-        operator: Exists
+      matchLabels: {}
     neighbors:
-    - peerAddress: "192.168.1.99"  # pfSense router IP (handles 192.168.100.0/24)
+    - peerAddress: "192.168.1.99/32"  # pfSense router IP (handles 192.168.100.0/24)
       peerASN: 65001  # Match what's configured in pfSense (was 64511)
       gracefulRestart:
         enabled: true
@@ -34,31 +31,6 @@ spec:
       connectRetryTimeSeconds: 120
       holdTimeSeconds: 90
       keepAliveTimeSeconds: 30
-      families:
-      - afi: ipv4
-        safi: unicast
-        advertisements:
-          matchLabels:
-            advertise: "bgp"
----
-# Production Load Balancer IP Pool (existing pf-vip-pool)
-# Part of the 192.168.100.0/24 network managed by pfSense at 192.168.1.99
-apiVersion: cilium.io/v2alpha1
-kind: CiliumLoadBalancerIPPool
-metadata:
-  name: pf-vip-pool-production
-  labels:
-    app.kubernetes.io/name: cilium-lb-pool
-    app.kubernetes.io/component: networking
-    app.kubernetes.io/part-of: cilium-cni
-    environment: production
-spec:
-  blocks:
-  - cidr: "192.168.100.100/27"  # Production: 192.168.100.96-127 (32 IPs)
-  serviceSelector:
-    matchLabels:
-      environment: production
-  disabled: false
 ---
 # Development Load Balancer IP Pool
 # Second /27 subnet within 192.168.100.0/24
@@ -115,27 +87,6 @@ spec:
   serviceSelector:
     matchLabels:
       environment: shared
-  disabled: false
----
-# Legacy/Existing Pool (for backward compatibility)
-# This matches your existing pf-vip-pool that's currently in use
-apiVersion: cilium.io/v2alpha1
-kind: CiliumLoadBalancerIPPool
-metadata:
-  name: pf-vip-pool-legacy
-  labels:
-    app.kubernetes.io/name: cilium-lb-pool
-    app.kubernetes.io/component: networking
-    app.kubernetes.io/part-of: cilium-cni
-    environment: legacy
-spec:
-  blocks:
-  - cidr: "192.168.100.100/27"  # Same as production for existing services
-  serviceSelector:
-    matchExpressions:
-    # Select services that don't have environment label (existing services)
-    - key: environment
-      operator: DoesNotExist
   disabled: false
 ---
 # Network Policy for GitHub Actions namespace
