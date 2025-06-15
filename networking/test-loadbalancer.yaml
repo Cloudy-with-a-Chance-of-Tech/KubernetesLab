@@ -1,0 +1,47 @@
+# Test LoadBalancer service to verify BGP advertisement
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-loadbalancer
+  namespace: default
+  labels:
+    environment: production
+    advertise: "bgp"
+spec:
+  type: LoadBalancer
+  loadBalancerClass: "cilium"
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  selector:
+    app: test-nginx
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-nginx
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: test-nginx
+  template:
+    metadata:
+      labels:
+        app: test-nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"

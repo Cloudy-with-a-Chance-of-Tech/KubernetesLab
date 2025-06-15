@@ -18,7 +18,7 @@ spec:
     matchLabels:
       kubernetes.io/os: linux
   virtualRouters:
-  - localASN: 64512  # Private ASN for Kubernetes cluster
+  - localASN: 64513  # Match what's configured in pfSense (was 64512)
     exportPodCIDR: false  # Set to false since using tunnel mode
     serviceSelector:
       matchExpressions:
@@ -27,7 +27,7 @@ spec:
         operator: Exists
     neighbors:
     - peerAddress: "192.168.1.99"  # pfSense router IP (handles 192.168.100.0/24)
-      peerASN: 64511  # Private ASN for pfSense
+      peerASN: 65001  # Match what's configured in pfSense (was 64511)
       gracefulRestart:
         enabled: true
         restartTimeSeconds: 120
