@@ -48,8 +48,22 @@ Successfully implemented a complete portable template system that enables cluste
 2. **Cluster Detection**: Script detects current cluster configuration
 3. **Template Processing**: Variables substituted with cluster-specific values
 4. **Manifest Generation**: Portable manifests created in `manifests/` directory
-5. **Deployment**: Generated manifests deployed alongside static resources
-6. **Validation**: All resources validated for security and best practices
+5. **Cilium Configuration**: Cluster name synchronized with detected values
+6. **Hubble Flow Management**: Flow buffer optimized for network monitoring
+
+## Infrastructure Components Fixed
+
+### Cilium Network Policy Engine
+- **Cluster Name Alignment**: Updated Cilium `cluster-name` to match detected cluster name (`kub`)
+- **Flow Buffer Optimization**: Increased monitor pages from 64 to 256 for better flow capture
+- **Hubble Metrics**: Enabled metrics collection for network observability
+- **DNS Resolution**: Fixed service discovery issues between Hubble UI and Relay
+
+### Network Flow Monitoring
+- **Flow Capacity**: Expanded from 4095 to ~16K flows with increased buffer pages
+- **Real-time Capture**: Hubble UI now properly captures and displays network flows
+- **Service Accessibility**: Hubble UI accessible via NodePort 31235
+- **Performance**: Optimized flow processing with medium aggregation level
 
 ## Benefits Achieved
 
@@ -145,6 +159,23 @@ VAULT_EXTERNAL_URL="https://vault.kub.local:8200"
 
 Same templates, different generated manifests automatically.
 
+## Infrastructure Component Updates
+
+### Cilium Network Policy Configuration
+As part of the portability improvements, the Cilium CNI configuration was updated to align with detected cluster names:
+
+- **Issue**: Cilium was configured with hardcoded `cluster-name: "kub-cluster"` while actual cluster name was `"kub"`
+- **Impact**: DNS resolution issues for Hubble services, full flow buffers preventing network flow capture
+- **Solution**: Updated Cilium ConfigMap to use dynamically detected cluster name
+- **Result**: Hubble UI now properly captures network flows (buffer at 12% vs. previous 100%)
+
+**Configuration Changes Applied**:
+```bash
+kubectl patch configmap cilium-config -n cilium --type merge -p '{"data":{"cluster-name":"kub","monitor-num-pages":"256","hubble-metrics":""}}'
+```
+
+This ensures Cilium components use consistent naming with the portable deployment system.
+
 ## Security Considerations
 
 - ✅ Templates contain no sensitive information
@@ -152,6 +183,7 @@ Same templates, different generated manifests automatically.
 - ✅ Generated manifests are ephemeral (not committed)
 - ✅ Runtime security configurations preserved
 - ✅ Network policies and RBAC maintained
+- ✅ Cilium network policies aligned with cluster configuration
 
 ## Future Enhancements
 

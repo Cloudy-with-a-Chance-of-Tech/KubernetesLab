@@ -54,6 +54,8 @@ templates/
 │   │   └── grafana-deployment.yaml      # Grafana with templated URLs
 │   └── prometheus/
 │       └── prometheus-deployment.yaml   # Prometheus with templated URLs
+├── networking/
+│   └── cilium-config.yaml               # Cilium configuration with cluster name
 └── security/
     └── external-secrets-vault.yaml      # Vault integration with templated server URL
 ```

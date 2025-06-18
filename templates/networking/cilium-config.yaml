@@ -1,0 +1,129 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cilium-config
+  namespace: cilium
+  labels:
+    app.kubernetes.io/name: cilium
+    app.kubernetes.io/part-of: cilium
+data:
+  # Cluster Configuration
+  cluster-name: "{{CLUSTER_NAME}}"
+  cluster-id: "0"
+  
+  # Hubble Configuration
+  enable-hubble: "true"
+  hubble-disable-tls: "false"
+  hubble-listen-address: ":4244"
+  hubble-socket-path: "/var/run/cilium/hubble.sock"
+  hubble-tls-cert-file: "/var/lib/cilium/tls/hubble/server.crt"
+  hubble-tls-client-ca-files: "/var/lib/cilium/tls/hubble/client-ca.crt"
+  hubble-tls-key-file: "/var/lib/cilium/tls/hubble/server.key"
+  hubble-metrics: ""
+  hubble-export-file-max-backups: "5"
+  hubble-export-file-max-size-mb: "10"
+  
+  # Flow Buffer Configuration
+  monitor-num-pages: "256"
+  monitor-aggregation: "medium"
+  monitor-aggregation-interval: "5s"
+  monitor-aggregation-flags: "all"
+  
+  # BGP Configuration
+  enable-bgp-control-plane: "true"
+  enable-bgp-control-plane-status-report: "true"
+  bgp-secrets-namespace: "kube-system"
+  
+  # Network Configuration
+  enable-ipv4: "true"
+  enable-ipv6: "false"
+  enable-ipv4-masquerade: "true"
+  enable-ipv6-masquerade: "true"
+  routing-mode: "tunnel"
+  tunnel-protocol: "vxlan"
+  
+  # CNI Configuration
+  cni-exclusive: "true"
+  cni-log-file: "/var/run/cilium/cilium-cni.log"
+  custom-cni-conf: "false"
+  write-cni-conf-when-ready: "/host/etc/cni/net.d/05-cilium.conflist"
+  
+  # Security Configuration
+  enable-k8s-networkpolicy: "true"
+  enable-l7-proxy: "true"
+  enable-policy: "default"
+  enable-endpoint-health-checking: "true"
+  enable-health-checking: "true"
+  enable-well-known-identities: "false"
+  
+  # Performance Configuration
+  kube-proxy-replacement: "true"
+  enable-bpf-clock-probe: "false"
+  enable-endpoint-lockdown-on-policy-overflow: "false"
+  enable-tcx: "true"
+  bpf-lb-map-max: "65536"
+  bpf-policy-map-max: "16384"
+  
+  # Observability Configuration
+  enable-metrics: "true"
+  prometheus-serve-addr: ":9962"
+  operator-prometheus-serve-addr: ":9963"
+  
+  # Identity and Service Mesh
+  identity-allocation-mode: "crd"
+  identity-gc-interval: "15m0s"
+  identity-heartbeat-timeout: "30m0s"
+  mesh-auth-enabled: "true"
+  mesh-auth-gc-interval: "5m0s"
+  mesh-auth-queue-size: "1024"
+  mesh-auth-rotated-identities-queue-size: "1024"
+  
+  # Node and Endpoint Configuration
+  enable-auto-protect-node-port-range: "true"
+  enable-health-check-nodeport: "true"
+  enable-host-legacy-routing: "true"
+  enable-k8s-terminating-endpoint: "true"
+  enable-node-selector-labels: "false"
+  remove-cilium-node-taints: "true"
+  set-cilium-node-taints: "true"
+  set-cilium-is-up-condition: "true"
+  synchronize-k8s-nodes: "true"
+  
+  # IPAM Configuration
+  ipam: "kubernetes"
+  ipam-cilium-node-update-rate: "15s"
+  
+  # DNS Configuration
+  dnsproxy-enable-transparent-mode: "true"
+  dnsproxy-socket-linger-timeout: "10"
+  
+  # Load Balancing Configuration
+  enable-lb-ipam: "true"
+  default-lb-service-ipam: "lbipam"
+  enable-svc-source-range-check: "true"
+  enable-internal-traffic-policy: "true"
+  service-no-backend-response: "reject"
+  
+  # Datapath Configuration
+  datapath-mode: "veth"
+  enable-runtime-device-detection: "true"
+  enable-bpf-masquerade: "true"
+  enable-masquerade-to-route-source: "false"
+  enable-source-ip-verification: "true"
+  
+  # Garbage Collection
+  cilium-endpoint-gc-interval: "5m0s"
+  nodes-gc-interval: "5m0s"
+  
+  # Encryption and Security
+  enable-xt-socket-fallback: "true"
+  install-no-conntrack-iptables-rules: "false"
+  iptables-random-fully: "false"
+  
+  # Miscellaneous
+  arping-refresh-period: "30s"
+  debug: "false"
+  debug-verbose: ""
+  procfs: "/host/proc"
+  bpf-root: "/sys/fs/bpf"
+  cgroup-root: "/sys/fs/cgroup"
