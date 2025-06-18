@@ -108,6 +108,7 @@ This repository includes comprehensive documentation for both entry-level and ad
 - **[Main README](README.md)** - You are here! Overview and quick start
 - **[Quick Setup Guide](docs/quick-setup-secrets.md)** - Get running in 30 minutes
 - **[GitHub Actions Setup](docs/github-actions-setup.md)** - Self-hosted runners configuration
+- **[GitHub Actions Troubleshooting](docs/github-actions-troubleshooting.md)** - CI/CD pipeline issue resolution
 - **[Quick Reference](docs/quick-reference.md)** - Common commands and operations
 
 ### 🔬 **Deep-Dive Technical Documentation**
