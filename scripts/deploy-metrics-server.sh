@@ -1,6 +1,6 @@
 #!/bin/bash
-# Deploy and manage Kubernetes metrics-server
-# Usage: ./deploy-metrics-server.sh [deploy|delete|status|logs]
+# Deploy and manage Kubernetes metrics-server with security validation
+# Usage: ./deploy-metrics-server.sh [deploy|delete|status|logs|security-check]
 
 set -euo pipefail
 
@@ -125,6 +125,95 @@ show_logs() {
     fi
 }
 
+security_check() {
+    log_info "Running security validation checks..."
+    
+    local issues=0
+    
+    echo -e "\n${BLUE}Security Context Validation:${NC}"
+    local security_context
+    security_context=$(kubectl get pod -n kube-system -l k8s-app=metrics-server -o jsonpath='{.items[0].spec.securityContext}' 2>/dev/null || echo "")
+    
+    if [[ -n "$security_context" ]]; then
+        echo "✅ Pod security context configured"
+        echo "$security_context" | jq .
+    else
+        echo "❌ No pod security context found"
+        ((issues++))
+    fi
+    
+    echo -e "\n${BLUE}Container Security Context:${NC}"
+    local container_security
+    container_security=$(kubectl get pod -n kube-system -l k8s-app=metrics-server -o jsonpath='{.items[0].spec.containers[0].securityContext}' 2>/dev/null || echo "")
+    
+    if echo "$container_security" | grep -q "runAsUser.*65534"; then
+        echo "✅ Running as nobody user (65534)"
+    else
+        echo "❌ Not running as nobody user"
+        ((issues++))
+    fi
+    
+    if echo "$container_security" | grep -q "readOnlyRootFilesystem.*true"; then
+        echo "✅ Read-only root filesystem enabled"
+    else
+        echo "❌ Read-only root filesystem not enabled"
+        ((issues++))
+    fi
+    
+    echo -e "\n${BLUE}Network Policy Validation:${NC}"
+    if kubectl get networkpolicy metrics-server-netpol -n kube-system &> /dev/null; then
+        echo "✅ Network policy exists"
+        kubectl describe networkpolicy metrics-server-netpol -n kube-system | grep -A 10 "Spec:"
+    else
+        echo "❌ Network policy not found"
+        ((issues++))
+    fi
+    
+    echo -e "\n${BLUE}Resource Limits Check:${NC}"
+    local limits
+    limits=$(kubectl get pod -n kube-system -l k8s-app=metrics-server -o jsonpath='{.items[0].spec.containers[0].resources.limits}' 2>/dev/null || echo "")
+    
+    if [[ -n "$limits" ]] && echo "$limits" | grep -q "cpu\|memory"; then
+        echo "✅ Resource limits configured"
+        echo "$limits" | jq .
+    else
+        echo "❌ Resource limits not configured"
+        ((issues++))
+    fi
+    
+    echo -e "\n${BLUE}TLS Configuration Check:${NC}"
+    local args
+    args=$(kubectl get deployment metrics-server -n kube-system -o jsonpath='{.spec.template.spec.containers[0].args}' 2>/dev/null || echo "")
+    
+    if echo "$args" | grep -q "kubelet-insecure-tls"; then
+        echo "⚠️  kubelet-insecure-tls enabled (required for Talos)"
+    fi
+    
+    if echo "$args" | grep -q "requestheader-client-ca-file"; then
+        echo "✅ Request header authentication configured"
+    else
+        echo "❌ Request header authentication not configured"
+        ((issues++))
+    fi
+    
+    echo -e "\n${BLUE}RBAC Validation:${NC}"
+    if kubectl auth can-i get nodes/metrics --as=system:serviceaccount:kube-system:metrics-server &> /dev/null; then
+        echo "✅ Service account has required permissions"
+    else
+        echo "❌ Service account missing required permissions"
+        ((issues++))
+    fi
+    
+    echo -e "\n${BLUE}Security Summary:${NC}"
+    if [[ $issues -eq 0 ]]; then
+        log_success "All security checks passed! 🔒"
+    else
+        log_warning "$issues security issues found. Review configuration."
+    fi
+    
+    return $issues
+}
+
 main() {
     check_kubectl
     check_cluster_connection
@@ -142,15 +231,19 @@ main() {
         logs)
             show_logs
             ;;
+        security-check)
+            security_check
+            ;;
         help|--help|-h)
-            echo "Usage: $0 [deploy|delete|status|logs]"
+            echo "Usage: $0 [deploy|delete|status|logs|security-check]"
             echo ""
             echo "Commands:"
-            echo "  deploy  - Deploy metrics-server (default)"
-            echo "  delete  - Delete metrics-server"
-            echo "  status  - Show metrics-server status"
-            echo "  logs    - Show metrics-server logs"
-            echo "  help    - Show this help message"
+            echo "  deploy         - Deploy metrics-server (default)"
+            echo "  delete         - Delete metrics-server"
+            echo "  status         - Show metrics-server status"
+            echo "  logs           - Show metrics-server logs"
+            echo "  security-check - Run security validation checks"
+            echo "  help           - Show this help message"
             ;;
         *)
             log_error "Unknown command: $1"

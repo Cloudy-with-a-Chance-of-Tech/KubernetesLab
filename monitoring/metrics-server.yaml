@@ -1,6 +1,13 @@
 # Metrics Server for Kubernetes cluster resource monitoring
-# Provides kubectl top nodes/pods functionality and HPA metrics
-# Configured for Talos Linux with TLS verification disabled for kubelets
+# Security-hardened configuration for Talos Linux
+# 
+# SECURITY CONSIDERATIONS:
+# - Uses --kubelet-insecure-tls due to Talos Linux kubelet certificate limitations
+# - Runs with minimal privileges (non-root, read-only filesystem)
+# - Resource limits prevent resource exhaustion attacks
+# - Seccomp profile restricts system calls
+# - Capabilities dropped to minimum required
+# - Network policies should be applied for additional segmentation
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -150,9 +157,18 @@ spec:
       priorityClassName: system-cluster-critical
       nodeSelector:
         kubernetes.io/os: linux
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534  # nobody user
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: true  # Required for API access
       volumes:
       - name: tmp-dir
-        emptyDir: {}
+        emptyDir:
+          sizeLimit: 100Mi  # Limit tmp directory size
       containers:
       - name: metrics-server
         image: registry.k8s.io/metrics-server/metrics-server:v0.7.2
@@ -163,7 +179,14 @@ spec:
           - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
           - --kubelet-use-node-status-port
           - --metric-resolution=15s
-          - --kubelet-insecure-tls  # Required for Talos Linux
+          - --kubelet-insecure-tls  # SECURITY NOTE: Required for Talos Linux kubelet certs
+          - --requestheader-client-ca-file=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          - --requestheader-allowed-names=aggregator
+          - --requestheader-extra-headers-prefix=X-Remote-Extra-
+          - --requestheader-group-headers=X-Remote-Group
+          - --requestheader-username-headers=X-Remote-User
+          - --tls-cert-file=/tmp/tls.crt
+          - --tls-private-key-file=/tmp/tls.key
         resources:
           requests:
             cpu: 100m
@@ -194,7 +217,8 @@ spec:
           failureThreshold: 3
         securityContext:
           runAsNonRoot: true
-          runAsUser: 1000
+          runAsUser: 65534  # nobody user
+          runAsGroup: 65534
           readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false
           capabilities:
@@ -244,3 +268,51 @@ spec:
   insecureSkipTLSVerify: true
   groupPriorityMinimum: 100
   versionPriority: 100
+---
+# Network Policy for metrics-server security
+# Restricts network traffic to only necessary communications
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: metrics-server-netpol
+  namespace: kube-system
+  labels:
+    k8s-app: metrics-server
+    app.kubernetes.io/name: metrics-server
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: monitoring-stack
+spec:
+  podSelector:
+    matchLabels:
+      k8s-app: metrics-server
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow API server to access metrics-server
+  - from: []  # API server can come from any namespace
+    ports:
+    - protocol: TCP
+      port: 10250
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow access to kubelet metrics on all nodes
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 10250
+    - protocol: TCP
+      port: 10255  # Read-only kubelet port
+  # Allow access to Kubernetes API
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 6443
+    - protocol: TCP
+      port: 443
