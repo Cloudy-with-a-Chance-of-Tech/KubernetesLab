@@ -38,6 +38,43 @@ jobs:
         with:
           version: 'v1.29.0'
 
+      - name: 'Detect Cluster Configuration'
+        id: cluster-config
+        run: |
+          # Make scripts executable
+          chmod +x scripts/detect-cluster-info.sh scripts/template-substitution.sh
+          
+          # Detect cluster configuration and export as environment variables
+          echo "Detecting cluster configuration..."
+          eval "$(scripts/detect-cluster-info.sh env)"
+          
+          # Export cluster config to GitHub Actions output
+          echo "cluster_domain=$CLUSTER_DOMAIN" >> $GITHUB_OUTPUT
+          echo "cluster_name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
+          echo "cluster_region=$CLUSTER_REGION" >> $GITHUB_OUTPUT
+          echo "cluster_environment=$CLUSTER_ENVIRONMENT" >> $GITHUB_OUTPUT
+          echo "cluster_fqdn=$CLUSTER_FQDN" >> $GITHUB_OUTPUT
+          
+          # Display detected configuration
+          echo "✅ Cluster configuration detected:"
+          echo "  Domain: $CLUSTER_DOMAIN"
+          echo "  Name: $CLUSTER_NAME"
+          echo "  Region: $CLUSTER_REGION"
+          echo "  Environment: $CLUSTER_ENVIRONMENT"
+          echo "  FQDN: $CLUSTER_FQDN"
+
+      - name: 'Generate Portable Manifests'
+        run: |
+          # Generate cluster-specific manifests from templates
+          echo "Generating portable manifests..."
+          scripts/template-substitution.sh substitute
+          
+          # List generated manifests for debugging
+          if [ -d "manifests" ]; then
+            echo "Generated manifests:"
+            find manifests -name "*.yaml" -o -name "*.yml" | head -10
+          fi
+
       - name: 'Validate YAML Syntax'
         run: |
           # Validate core Kubernetes manifests only
@@ -79,6 +116,7 @@ jobs:
 
       - name: 'Deploy Base Resources'
         run: |
+          # Deploy base resources (use original files, not templated)
           kubectl apply -k base/ --dry-run=server
           kubectl apply -k base/
 
@@ -88,6 +126,18 @@ jobs:
           if [ -d "apps/staging" ]; then
             kubectl apply -k apps/staging/ --dry-run=server
             kubectl apply -k apps/staging/
+          fi
+
+      - name: 'Deploy Generated Manifests (Staging)'
+        run: |
+          # Deploy generated manifests if they exist
+          if [ -d "manifests" ]; then
+            echo "Deploying generated manifests for staging..."
+            find manifests -name "*.yaml" -o -name "*.yml" | while read -r manifest; do
+              echo "Applying $manifest..."
+              kubectl apply -f "$manifest" --dry-run=server
+              kubectl apply -f "$manifest"
+            done
           fi
 
       - name: 'Verify Deployment'
@@ -110,8 +160,46 @@ jobs:
         with:
           version: 'v1.29.0'
 
+      - name: 'Detect Cluster Configuration'
+        id: cluster-config
+        run: |
+          # Make scripts executable
+          chmod +x scripts/detect-cluster-info.sh scripts/template-substitution.sh
+          
+          # Detect cluster configuration and export as environment variables
+          echo "Detecting cluster configuration for production deployment..."
+          eval "$(scripts/detect-cluster-info.sh env)"
+          
+          # Export cluster config to GitHub Actions output
+          echo "cluster_domain=$CLUSTER_DOMAIN" >> $GITHUB_OUTPUT
+          echo "cluster_name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
+          echo "cluster_region=$CLUSTER_REGION" >> $GITHUB_OUTPUT
+          echo "cluster_environment=$CLUSTER_ENVIRONMENT" >> $GITHUB_OUTPUT
+          
+          # Display detected configuration
+          echo "✅ Production cluster configuration:"
+          echo "  Domain: $CLUSTER_DOMAIN"
+          echo "  Name: $CLUSTER_NAME"
+          echo "  Region: $CLUSTER_REGION"
+          echo "  Environment: $CLUSTER_ENVIRONMENT"
+
+      - name: 'Generate Portable Manifests'
+        run: |
+          # Generate cluster-specific manifests from templates
+          echo "Generating portable manifests for production..."
+          scripts/template-substitution.sh substitute
+          
+          # Verify manifest generation
+          if [ -d "manifests" ]; then
+            echo "✅ Generated manifests:"
+            find manifests -name "*.yaml" -o -name "*.yml" | head -10
+          else
+            echo "⚠️ No manifests directory found"
+          fi
+
       - name: 'Deploy Base Resources'
         run: |
+          # Deploy base resources (use original files, not templated)
           kubectl apply -k base/
 
       - name: 'Deploy Production Applications'
@@ -137,15 +225,37 @@ jobs:
           # Deploy applications (excluding secret templates)
           kubectl apply -k apps/production/ --selector='!config.kubernetes.io/local-config'
 
-      - name: 'Deploy Monitoring Stack'
+      - name: 'Deploy Generated Monitoring Stack'
         run: |
-          if [ -d "monitoring/" ]; then
+          # Deploy generated monitoring manifests (templated versions)
+          if [ -d "manifests/monitoring" ]; then
+            echo "Deploying generated monitoring stack..."
+            find manifests/monitoring -name "*.yaml" -o -name "*.yml" | while read -r manifest; do
+              echo "Applying $manifest..."
+              kubectl apply -f "$manifest"
+            done
+          else
+            # Fallback to original monitoring stack if no templates
+            echo "Deploying original monitoring stack..."
             kubectl apply -k monitoring/
+          fi
+
+      - name: 'Deploy Generated Security Configuration'
+        run: |
+          # Deploy generated security manifests (templated versions)
+          if [ -d "manifests/security" ]; then
+            echo "Deploying generated security configuration..."
+            find manifests/security -name "*.yaml" -o -name "*.yml" | while read -r manifest; do
+              echo "Applying $manifest..."
+              kubectl apply -f "$manifest"
+            done
           fi
 
       - name: 'Deploy Networking Configuration'
         run: |
+          # Deploy networking configuration (not templated)
           if [ -d "networking/" ]; then
+            echo "Deploying networking configuration..."
             kubectl apply -k networking/
           fi
 
@@ -162,6 +272,12 @@ jobs:
           
           echo "=== Checking Node Status ==="
           kubectl get nodes -o wide
+          
+          echo "=== Checking Generated Manifest Status ==="
+          if [ -d "manifests" ]; then
+            echo "Generated manifests were deployed from:"
+            find manifests -name "*.yaml" -o -name "*.yml"
+          fi
 
       - name: 'Run Health Checks'
         run: |

@@ -213,3 +213,4 @@ base/talos/talosconfig
 *.key
 *.crt
 **/secrets/
+manifests/
