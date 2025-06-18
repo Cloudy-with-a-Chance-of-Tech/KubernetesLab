@@ -14,6 +14,7 @@ resources:
   # Add more monitoring components as they're created
   # - grafana/grafana-deployment.yaml
   # - alertmanager/alertmanager-deployment.yaml
+  # Note: metrics-server is deployed separately as it requires kube-system namespace
 
 # Common labels for all monitoring resources
 commonLabels:
