@@ -31,21 +31,21 @@ spec:
       securityContext:
         # Talos-compatible security contexts - non-root for security
         runAsNonRoot: true
-        runAsUser: 65534  # nobody user for security
-        runAsGroup: 65534
-        fsGroup: 65534
+        runAsUser: 1001  # Match image's runner user for /actions-runner permissions
+        runAsGroup: 1001
+        fsGroup: 1001
         seccompProfile:
           type: RuntimeDefault
       containers:
       - name: runner
-        image: myoung34/github-runner:2.321.0
+        image: myoung34/github-runner:latest
         imagePullPolicy: Always
         securityContext:
           privileged: false
-          runAsUser: 65534  # nobody user for security
-          runAsGroup: 65534
+          runAsUser: 1001  # Match phoenix-runner for /actions-runner permissions
+          runAsGroup: 1001
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true  # Enhanced security
+          readOnlyRootFilesystem: false  # Runner needs to write to /actions-runner
           capabilities:
             drop:
             - ALL
