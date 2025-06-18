@@ -22,16 +22,31 @@ spec:
   containers:
   - name: test-container
     image: busybox:1.35
+    imagePullPolicy: Always
     command:
       - sleep
       - "3600"
     volumeMounts:
     - name: test-volume
       mountPath: /data
+    resources:
+      requests:
+        cpu: 100m
+        memory: 64Mi
+        ephemeral-storage: 100Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+        ephemeral-storage: 200Mi
     securityContext:
-      runAsUser: 1000
-      runAsGroup: 1000
-      fsGroup: 1000
+      runAsUser: 65534  # nobody user for security
+      runAsGroup: 65534
+      fsGroup: 65534
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
   volumes:
   - name: test-volume
     persistentVolumeClaim:
@@ -52,6 +67,7 @@ spec:
       containers:
       - name: test
         image: busybox:1.35
+        imagePullPolicy: Always
         command:
         - /bin/sh
         - -c
@@ -65,13 +81,77 @@ spec:
         volumeMounts:
         - name: test-volume
           mountPath: /data
+        resources:
+          requests:
+            cpu: 100m
+            memory: 64Mi
+            ephemeral-storage: 100Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+            ephemeral-storage: 200Mi
         securityContext:
-          runAsUser: 1000
-          runAsGroup: 1000
-          fsGroup: 1000
+          runAsUser: 65534  # nobody user for security
+          runAsGroup: 65534
+          fsGroup: 65534
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
       volumes:
       - name: test-volume
         persistentVolumeClaim:
           claimName: storage-test-pvc
       restartPolicy: OnFailure
   backoffLimit: 3
+---
+# NetworkPolicy for storage test pod
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: storage-test-pod-netpol
+  namespace: default
+  labels:
+    app: storage-test
+spec:
+  podSelector:
+    matchLabels:
+      app: storage-test
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress: []  # No ingress needed for test pods
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+---
+# NetworkPolicy for storage test job
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: storage-test-job-netpol
+  namespace: default
+  labels:
+    app: storage-test-job
+spec:
+  podSelector:
+    matchLabels:
+      app: storage-test-job
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress: []  # No ingress needed for test pods
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53

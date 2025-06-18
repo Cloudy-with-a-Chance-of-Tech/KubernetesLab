@@ -37,7 +37,7 @@ spec:
       containers:
       - name: prometheus
         image: prom/prometheus:v2.48.0
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -66,9 +66,11 @@ spec:
           requests:
             memory: "512Mi"
             cpu: "250m"
+            ephemeral-storage: "200Mi"
           limits:
             memory: "2Gi"
             cpu: "1000m"
+            ephemeral-storage: "1Gi"
         volumeMounts:
         - name: config
           mountPath: /etc/prometheus
@@ -203,3 +205,51 @@ spec:
     requests:
       storage: 20Gi
   storageClassName: local-path  # Adjust based on your storage class
+---
+# NetworkPolicy for Prometheus security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prometheus-netpol
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: prometheus
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow access to Prometheus web interface and API
+  - from: []
+    ports:
+    - protocol: TCP
+      port: 9090
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow scraping metrics from pods across all namespaces
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 9090
+    - protocol: TCP
+      port: 9100  # Node exporter
+    - protocol: TCP
+      port: 10250  # Kubelet metrics
+  # Allow access to Kubernetes API
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 6443
+    - protocol: TCP
+      port: 443

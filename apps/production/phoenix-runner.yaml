@@ -35,22 +35,22 @@ spec:
       securityContext:
         # Talos-compatible security contexts
         runAsNonRoot: true
-        runAsUser: 1001
-        runAsGroup: 1001
-        fsGroup: 1001
+        runAsUser: 65534  # nobody user for security
+        runAsGroup: 65534
+        fsGroup: 65534
         seccompProfile:
           type: RuntimeDefault
       containers:
       - name: runner
-        image: myoung34/github-runner:latest
+        image: myoung34/github-runner:2.321.0
         imagePullPolicy: Always
         securityContext:
           # Talos security requirements - GitHub runner needs write access
           privileged: false
-          runAsUser: 1001  # Non-root user
-          runAsGroup: 1001
+          runAsUser: 65534  # nobody user for security
+          runAsGroup: 65534
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: false  # GitHub runner needs write access
+          readOnlyRootFilesystem: true  # Enhanced security
           capabilities:
             drop:
             - ALL
@@ -90,9 +90,11 @@ spec:
           requests:
             memory: "512Mi"
             cpu: "250m"
+            ephemeral-storage: "1Gi"
           limits:
             memory: "2Gi"
             cpu: "1000m"
+            ephemeral-storage: "5Gi"
         volumeMounts:
         - name: runner-work
           mountPath: /tmp/runner
@@ -122,7 +124,7 @@ spec:
             command:
             - /bin/sh
             - -c
-            - ps aux | grep -v grep | grep Runner.Listener
+            - ps aux | grep -v grep | grep Runner.Worker || ps aux | grep -v grep | grep Runner.Listener
           initialDelaySeconds: 15
           periodSeconds: 10
           timeoutSeconds: 5

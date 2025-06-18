@@ -85,7 +85,7 @@ spec:
       containers:
         - name: local-path-provisioner
           image: rancher/local-path-provisioner:v0.0.28
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           command:
             - local-path-provisioner
             - --debug
@@ -102,9 +102,23 @@ spec:
                   fieldPath: metadata.namespace
           securityContext:
             runAsNonRoot: true
-            runAsUser: 1000
-            runAsGroup: 1000
-            fsGroup: 1000
+            runAsUser: 65534  # nobody user for security
+            runAsGroup: 65534
+            fsGroup: 65534
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+              ephemeral-storage: 100Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+              ephemeral-storage: 500Mi
       volumes:
         - name: config-volume
           configMap:
@@ -174,3 +188,40 @@ subjects:
   - kind: ServiceAccount
     name: local-path-provisioner-service-account
     namespace: local-path-storage
+---
+# NetworkPolicy for local-path-provisioner security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: local-path-provisioner-netpol
+  namespace: local-path-storage
+  labels:
+    app: local-path-provisioner
+spec:
+  podSelector:
+    matchLabels:
+      app: local-path-provisioner
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow Kubernetes API server to access the provisioner
+  - from: []
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow access to Kubernetes API
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 6443
+    - protocol: TCP
+      port: 443
