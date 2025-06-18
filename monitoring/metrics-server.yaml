@@ -172,7 +172,7 @@ spec:
       containers:
       - name: metrics-server
         image: registry.k8s.io/metrics-server/metrics-server:v0.7.2
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         args:
           - --cert-dir=/tmp
           - --secure-port=10250
@@ -191,9 +191,11 @@ spec:
           requests:
             cpu: 100m
             memory: 200Mi
+            ephemeral-storage: 1Gi
           limits:
             cpu: 500m
             memory: 500Mi
+            ephemeral-storage: 2Gi
         ports:
         - name: https
           containerPort: 10250
@@ -316,3 +318,20 @@ spec:
       port: 6443
     - protocol: TCP
       port: 443
+---
+# PodDisruptionBudget for metrics-server high availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: metrics-server-pdb
+  namespace: kube-system
+  labels:
+    k8s-app: metrics-server
+    app.kubernetes.io/name: metrics-server
+    app.kubernetes.io/component: availability
+    app.kubernetes.io/part-of: monitoring-stack
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      k8s-app: metrics-server
