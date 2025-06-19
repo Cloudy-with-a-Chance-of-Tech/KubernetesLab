@@ -342,6 +342,49 @@ Each pod should show a unique name like:
 - `RUNNER_NAME=github-runner-7d85f8c659-vgptx`
 - `RUNNER_NAME=github-runner-7d85f8c659-vrfnx`
 
+### Issue: `sudo: effective uid is not 0` in GitHub Actions
+
+**Symptoms:**
+- Workflow fails with error: "sudo: effective uid is not 0, is /usr/bin/sudo on a file system with the 'nosuid' option set or an NFS file system without root privileges?"
+- kubectl installation step fails in GitHub Actions workflow
+- Process completed with exit code 1
+
+**Root Cause:**
+Self-hosted GitHub Actions runners typically run in containers without sudo privileges or with sudo disabled for security reasons.
+
+**Solution:**
+Install binaries to user directory instead of system directories:
+
+```yaml
+- name: 'Setup kubectl'
+  run: |
+    # Install kubectl for ARM64 to user directory (no sudo needed)
+    curl -LO "https://dl.k8s.io/release/v1.29.0/bin/linux/arm64/kubectl"
+    chmod +x kubectl
+    mkdir -p ~/.local/bin
+    mv kubectl ~/.local/bin/
+    echo "$HOME/.local/bin" >> $GITHUB_PATH
+    ~/.local/bin/kubectl version --client
+```
+
+**Key Changes:**
+- Use `~/.local/bin` instead of `/usr/local/bin`
+- Add directory to `$GITHUB_PATH` so subsequent steps can find the binary
+- Reference full path initially (`~/.local/bin/kubectl`) until PATH is updated
+
+**Alternative System-Wide Approach (if sudo is available):**
+```yaml
+# Only if your runner has sudo configured
+- name: 'Setup kubectl with sudo'
+  run: |
+    curl -LO "https://dl.k8s.io/release/v1.29.0/bin/linux/arm64/kubectl"
+    chmod +x kubectl
+    sudo mv kubectl /usr/local/bin/
+    kubectl version --client
+```
+
+This pattern works for any binary installation in GitHub Actions runners without sudo access.
+
 ### Monitoring and Maintenance
 
 **Regular Health Checks:**
