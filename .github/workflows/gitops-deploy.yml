@@ -393,6 +393,7 @@ jobs:
               kubectl apply -k monitoring/ || echo "⚠️ Original monitoring deployment failed"
             else
               echo "ℹ️ No monitoring configuration found"
+            fi
           fi
 
       - name: 'Deploy Generated Security Configuration'
