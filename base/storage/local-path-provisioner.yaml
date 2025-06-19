@@ -70,6 +70,14 @@ spec:
     spec:
       priorityClassName: system-node-critical
       serviceAccountName: local-path-provisioner-service-account
+      # Pod-level security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534  # This belongs at pod level, not container level
+        seccompProfile:
+          type: RuntimeDefault
       tolerations:
         - key: node-role.kubernetes.io/control-plane
           operator: Exists
@@ -100,11 +108,11 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+          # Container-level security context (fsGroup removed)
           securityContext:
             runAsNonRoot: true
             runAsUser: 65534  # nobody user for security
             runAsGroup: 65534
-            fsGroup: 65534
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
             capabilities:
