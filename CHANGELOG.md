@@ -2,6 +2,29 @@
 
 ## [Unreleased] - June 2025
 
+### Major Improvements - Storage Architecture Enhancement
+
+#### 🏗️ **NEW: Worker Node Isolation for Storage Provisioning**
+- **Enhancement**: Local-path-provisioner now runs exclusively on worker nodes using nodeSelector
+- **Configuration**: Added `nodeSelector: node-role.kubernetes.io/worker: "true"` to DaemonSet
+- **Architecture**: Proper separation of concerns between control-plane and worker node responsibilities
+- **Security**: Removed control-plane toleration since we explicitly exclude control-plane nodes
+- **Validation**: Verified 6/6 desired pods running only on worker nodes (apple, blueberry, cherry, lemon, pecan, rubharb)
+- **Files Changed**: `base/storage/local-path-provisioner.yaml`, documentation updates
+
+#### 🔧 **Fixed: Storage Path Configuration**
+- **Problem**: Documentation and code referenced inconsistent storage paths
+- **Solution**: Standardized on `/var/mnt/local-path-provisioner` for Talos compatibility
+- **Updated**: All documentation and configuration files to reflect correct path
+- **Verified**: Prometheus PVC provisioning working correctly with new path
+- **Files Changed**: `README.md`, `docs/architecture/README.md`, `scripts/README.md`, `docs/operations-guide-2025.md`
+
+#### 🔧 **Fixed: Monitoring Stack Persistent Storage**
+- **Problem**: Prometheus PVC stuck in terminating state due to finalizer issues
+- **Solution**: Proper cleanup of stuck PVC and recreation with correct configuration
+- **Verified**: Prometheus and Grafana both running with persistent storage on worker nodes
+- **Result**: Monitoring stack fully functional with local-path storage provisioning
+
 ### Major Improvements - GitOps Pipeline Hardening
 
 #### 🔧 **Fixed: Deployment Selector Immutability Issues**

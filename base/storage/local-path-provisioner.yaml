@@ -2,6 +2,8 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: local-path-storage
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -20,7 +22,7 @@ data:
             "nodePathMap":[
             {
                     "node":"DEFAULT_PATH_FOR_NON_LISTED_NODES",
-                    "paths":["/opt/local-path-provisioner"]
+                    "paths":["/var/mnt/local-path-provisioner"]
             }
             ]
     }
@@ -54,12 +56,11 @@ data:
         imagePullPolicy: IfNotPresent
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
   name: local-path-provisioner
   namespace: local-path-storage
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: local-path-provisioner
@@ -81,10 +82,11 @@ spec:
         fsGroup: 65534  # This belongs at pod level, not container level
         seccompProfile:
           type: RuntimeDefault
+      # Only run on worker nodes - exclude control-plane nodes
+      nodeSelector:
+        node-role.kubernetes.io/worker: "true"
       tolerations:
-        - key: node-role.kubernetes.io/control-plane
-          operator: Exists
-          effect: NoSchedule
+        # Remove control-plane toleration since we explicitly exclude control-plane nodes
         - key: node.kubernetes.io/not-ready
           operator: Exists
           effect: NoExecute

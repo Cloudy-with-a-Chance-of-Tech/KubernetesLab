@@ -19,6 +19,12 @@ metadata:
   labels:
     app: storage-test
 spec:
+  securityContext:
+    runAsUser: 65534
+    runAsGroup: 65534  
+    fsGroup: 65534
+    seccompProfile:
+      type: RuntimeDefault
   containers:
   - name: test-container
     image: busybox:1.35
@@ -39,9 +45,7 @@ spec:
         memory: 128Mi
         ephemeral-storage: 200Mi
     securityContext:
-      runAsUser: 65534  # nobody user for security
-      runAsGroup: 65534
-      fsGroup: 65534
+      runAsNonRoot: true
       readOnlyRootFilesystem: true
       allowPrivilegeEscalation: false
       capabilities:
@@ -64,6 +68,12 @@ spec:
       labels:
         app: storage-test-job
     spec:
+      securityContext:
+        runAsUser: 65534
+        runAsGroup: 65534  
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: test
         image: busybox:1.35
@@ -91,9 +101,7 @@ spec:
             memory: 128Mi
             ephemeral-storage: 200Mi
         securityContext:
-          runAsUser: 65534  # nobody user for security
-          runAsGroup: 65534
-          fsGroup: 65534
+          runAsNonRoot: true
           readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false
           capabilities:

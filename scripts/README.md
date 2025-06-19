@@ -110,23 +110,26 @@ This directory contains automation scripts for managing your Talos Kubernetes cl
 - **When to use**: For daily cluster monitoring, troubleshooting, or health checks.
 
 ### `install-storage.sh`
-- **Purpose**: Install local-path-provisioner for persistent storage
+- **Purpose**: Install local-path-provisioner for persistent storage on worker nodes
 - **Features**: 
-  - Deploys local-path-provisioner to `local-path-storage` namespace
+  - Deploys local-path-provisioner DaemonSet to `local-path-storage` namespace
   - Creates `local-path` StorageClass (set as default)
-  - Configures storage directory at `/opt/local-path-provisioner`
-  - ARM64 optimized for Raspberry Pi nodes
+  - Configures storage directory at `/var/mnt/local-path-provisioner`
+  - Worker node isolation: Runs only on nodes with `node-role.kubernetes.io/worker=true`
+  - Security hardened: Non-root containers with dropped capabilities
+  - Multi-architecture: Supports both ARM64 (Pi CM4) and x86_64 architectures
 - **Usage**: Run after cluster bootstrap and CNI installation
 - **Validation**: Includes automatic PVC testing to verify functionality
 
 ### `validate-storage.sh`
 - **Purpose**: Comprehensive storage functionality testing
 - **Tests**:
-  - local-path-provisioner deployment health
+  - local-path-provisioner DaemonSet health (worker nodes only)
   - StorageClass configuration and default status
   - PVC creation and binding
   - Pod storage access and file operations
   - Basic storage performance testing
+  - Verification of worker node isolation
 - **Usage**: Run after storage installation or for troubleshooting storage issues
 - **Cleanup**: Automatically cleans up test resources
 

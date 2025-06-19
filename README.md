@@ -308,7 +308,7 @@ cat scripts/README.md
 
 ## Storage Configuration
 
-The cluster uses **local-path-provisioner** for dynamic persistent volume provisioning on the Raspberry Pi nodes. This provides fast local storage for applications while maintaining the ability to schedule pods with persistent storage on any node.
+The cluster uses **local-path-provisioner** for dynamic persistent volume provisioning on the worker nodes only. This provides fast local storage for applications while maintaining proper separation between control-plane and worker node responsibilities.
 
 ### 🏠 **Storage Setup**
 
@@ -331,11 +331,13 @@ To install storage separately:
 ### 📊 **Storage Features**
 
 - **Dynamic Provisioning**: Automatically creates persistent volumes on demand
+- **Worker Node Only**: DaemonSet runs exclusively on worker nodes (excludes control-plane)
 - **Default StorageClass**: `local-path` is set as the default storage class
-- **Node Storage Path**: `/opt/local-path-provisioner` on each node
+- **Node Storage Path**: `/var/mnt/local-path-provisioner` on each worker node
 - **Volume Binding Mode**: `WaitForFirstConsumer` for optimal pod scheduling
 - **Reclaim Policy**: `Delete` to clean up storage when PVCs are removed
-- **ARM64 Optimized**: Specifically configured for Raspberry Pi CM4 architecture
+- **Security Hardened**: Non-root security contexts with dropped capabilities
+- **ARM64 + x86_64**: Supports both Raspberry Pi CM4 and x86_64 architectures
 
 ### 🧪 **Testing Storage**
 

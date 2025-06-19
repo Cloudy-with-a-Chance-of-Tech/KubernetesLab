@@ -124,7 +124,7 @@ Storage in a home lab is always a compromise between performance, redundancy, an
 
 **The problem:** Traditional shared storage (NFS, iSCSI) is often the bottleneck in home labs.
 
-**The solution:** Local NVMe storage on each node with dynamic provisioning.
+**The solution:** Local NVMe storage on worker nodes only with dynamic provisioning.
 
 ```yaml
 # How it works under the hood
@@ -139,8 +139,9 @@ spec:
     requests:
       storage: 10Gi
 ---
-# Result: PV created on the node where pod gets scheduled
-# Path: /opt/local-path-provisioner/{pvc-name}_{namespace}_{pv-name}
+# Result: PV created on a worker node where pod gets scheduled
+# Path: /var/mnt/local-path-provisioner/{pvc-name}_{namespace}_{pv-name}
+# Architecture: DaemonSet runs on worker nodes only (excludes control-plane)
 ```
 
 **Performance characteristics:**
@@ -148,6 +149,7 @@ spec:
 - **Sequential Write**: ~400MB/s
 - **Random IOPS**: 10,000+ (small block sizes)
 - **Latency**: <1ms (local storage)
+- **Node Isolation**: Storage provisioning isolated to worker nodes for better architecture separation
 
 **Trade-offs:**
 - ✅ High performance for single-node workloads

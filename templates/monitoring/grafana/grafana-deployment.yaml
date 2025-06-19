@@ -38,10 +38,10 @@ spec:
           capabilities:
             drop:
             - ALL
-          readOnlyRootFilesystem: true  # Enhanced security
+          readOnlyRootFilesystem: false  # Grafana needs write access for plugins and temp files
           runAsNonRoot: true
-          runAsUser: 65534  # nobody user for security
-          runAsGroup: 65534
+          runAsUser: 472   # Use grafana user, consistent with pod level
+          runAsGroup: 472
         ports:
         - name: http
           containerPort: 3000
@@ -74,6 +74,8 @@ spec:
           mountPath: /var/lib/grafana
         - name: config
           mountPath: /etc/grafana/provisioning
+        - name: tmp
+          mountPath: /tmp
         livenessProbe:
           httpGet:
             path: /api/health
@@ -98,6 +100,9 @@ spec:
         configMap:
           name: grafana-config
           defaultMode: 0644
+      - name: tmp
+        emptyDir:
+          sizeLimit: 100Mi
       nodeSelector:
         kubernetes.io/arch: arm64
 ---

@@ -34,7 +34,7 @@ kubectl apply -f manifests/security/      # Generated security configuration
 ```bash
 # Problem: "spec.selector: field is immutable"
 # Solution: Storage deployed separately from base
-kubectl get deployment local-path-provisioner -n local-path-storage -o yaml | grep selector
+kubectl get daemonset local-path-provisioner -n local-path-storage -o yaml | grep selector
 ```
 
 #### Sudo Permission Denied
@@ -55,10 +55,13 @@ find . -name "kustomization.yaml" | head -5
 
 #### Local Path Provisioner Problems
 ```bash
-# Check storage deployment
-kubectl get deployment local-path-provisioner -n local-path-storage
-kubectl get pods -n local-path-storage
-kubectl logs -n local-path-storage deployment/local-path-provisioner
+# Check storage DaemonSet (worker nodes only)
+kubectl get daemonset local-path-provisioner -n local-path-storage
+kubectl get pods -n local-path-storage -o wide
+kubectl logs -n local-path-storage daemonset/local-path-provisioner
+
+# Verify worker node isolation
+kubectl get pods -n local-path-storage -o jsonpath='{.items[*].spec.nodeName}' | tr ' ' '\n' | sort
 
 # Verify storage class
 kubectl get storageclass
@@ -68,7 +71,7 @@ kubectl describe storageclass local-path
 #### Storage Security Context Issues
 ```bash
 # Verify proper security context
-kubectl get deployment local-path-provisioner -n local-path-storage -o yaml | grep -A 10 securityContext
+kubectl get daemonset local-path-provisioner -n local-path-storage -o yaml | grep -A 10 securityContext
 ```
 
 ### 3. Networking Configuration

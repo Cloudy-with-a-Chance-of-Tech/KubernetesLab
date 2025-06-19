@@ -9,6 +9,10 @@ metadata:
     app.kubernetes.io/name: monitoring
     app.kubernetes.io/part-of: monitoring-stack
     kubernetes.io/managed-by: kustomize
+    # Allow privileged operations for storage provisioning
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged
   annotations:
     kubernetes.io/description: "Namespace for monitoring stack (Prometheus, Grafana, Alertmanager)"
 spec:
