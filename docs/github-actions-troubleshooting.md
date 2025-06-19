@@ -2,6 +2,96 @@
 
 ## Common CI/CD Pipeline Issues and Solutions
 
+### Issue: GitHub Runner Pod Crashes with Permission Errors
+
+**Symptoms:**
+- Runner pod constantly restarting with CrashLoopBackOff status
+- Logs show: "Access to the path '/actions-runner/_diag' is denied"
+- Logs show: "./config.sh: No such file or directory"
+- Logs show: "System.UnauthorizedAccessException"
+
+**Root Causes and Solutions:**
+
+#### 1. Filesystem Permission Issues
+**Problem:** `readOnlyRootFilesystem: true` prevents runner from writing configuration files.
+
+**Solution:**
+```yaml
+# In runner deployment security context
+securityContext:
+  readOnlyRootFilesystem: false  # Runner needs write access to /actions-runner
+```
+
+#### 2. User/Group Mismatch
+**Problem:** Running as `nobody` user (65534) instead of runner user (1001).
+
+**Solution:**
+```yaml
+# Pod-level security context
+securityContext:
+  runAsUser: 1001      # Match image's runner user
+  runAsGroup: 1001     # Match image's runner group  
+  fsGroup: 1001        # Ensure proper file ownership
+
+# Container-level security context
+containers:
+- name: runner
+  securityContext:
+    runAsUser: 1001
+    runAsGroup: 1001
+```
+
+#### 3. Volume Mount Masking Binaries
+**Problem:** Mounting empty volume over `/actions-runner` hides pre-installed runner software.
+
+**Solution:**
+```yaml
+# Remove /actions-runner volume mount
+volumeMounts:
+- name: runner-work
+  mountPath: /tmp/runner
+- name: tmp  
+  mountPath: /tmp
+# DO NOT mount: /actions-runner (masks pre-installed binaries)
+```
+
+#### 4. Deprecated Runner Version
+**Problem:** Using outdated runner image version rejected by GitHub.
+
+**Solution:**
+```yaml
+# Use latest image version
+image: myoung34/github-runner:latest
+# Instead of: myoung34/github-runner:2.321.0
+```
+
+**Complete Working Configuration:**
+```yaml
+spec:
+  template:
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+      containers:
+      - name: runner
+        image: myoung34/github-runner:latest
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsUser: 1001
+          runAsGroup: 1001
+          capabilities:
+            drop: ["ALL"]
+        volumeMounts:
+        - name: runner-work
+          mountPath: /tmp/runner
+        - name: tmp
+          mountPath: /tmp
+```
+
 ### Issue: `kubectl: command not found`
 
 **Symptoms:**

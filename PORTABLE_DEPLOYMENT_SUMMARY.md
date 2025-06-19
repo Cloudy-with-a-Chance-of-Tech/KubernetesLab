@@ -174,7 +174,25 @@ As part of the portability improvements, the Cilium CNI configuration was update
 kubectl patch configmap cilium-config -n cilium --type merge -p '{"data":{"cluster-name":"kub","monitor-num-pages":"256","hubble-metrics":""}}'
 ```
 
-This ensures Cilium components use consistent naming with the portable deployment system.
+### GitHub Actions Runner Infrastructure
+- **Permission Resolution**: Fixed filesystem access issues preventing runner startup
+- **User Alignment**: Updated security contexts to match runner image requirements (user 1001)
+- **Volume Optimization**: Removed unnecessary mounts that masked pre-installed runner binaries
+- **Version Updates**: Upgraded to latest runner image to resolve GitHub API deprecation issues
+
+**Configuration Changes Applied**:
+```yaml
+# Fixed security context
+securityContext:
+  runAsUser: 1001                    # Match runner image user
+  readOnlyRootFilesystem: false      # Allow runner configuration writes
+  
+# Simplified volume strategy
+volumeMounts:
+- mountPath: /tmp/runner             # Working directory only
+- mountPath: /tmp                    # Temporary files only
+# Removed: /actions-runner mount (was masking binaries)
+```
 
 ## Security Considerations
 

@@ -28,7 +28,7 @@ I need help with [SPECIFIC TASK]. Please provide complete configurations with se
 
 ### For GitHub Actions:
 ```
-@workspace Create a GitHub Actions workflow that deploys to my Talos cluster. The runner replaces itself during deployment and must handle the dynamic cluster name. Include all security validations.
+@workspace Create a GitHub Actions workflow that deploys to my Talos cluster, a Talos cluster on a cloud provider, or private cloud in a datacenter. The local runner replaces itself during deployment and must handle the dynamic cluster name. Include all security validations. The cloud provider will use the GitHub hosted runner all other deployments will use the self-hosted runner. 
 ```
 
 ### For Cilium BGP:

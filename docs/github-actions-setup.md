@@ -302,14 +302,84 @@ jobs:
 
 ## Troubleshooting
 
-### Common Issues
+### Common Issues and Solutions
 
-| Issue | Symptoms | Solution |
-|-------|----------|----------|
-| Runner not registering | Pods running but no runners in GitHub | Check GitHub Actions secret values and token permissions |
-| Permission denied | Containers crashing with permission errors | Verify Talos security contexts and RBAC |
-| Docker socket access | Build failures with Docker commands | Ensure `/var/run/docker.sock` is available on nodes |
-| High resource usage | Frequent restarts or slow performance | Adjust resource limits or increase node capacity |
+#### Issue: Runner Not Starting - Permission Denied Errors
+
+**Symptoms:**
+- Pod crashes with permission denied errors for `/actions-runner/_diag`
+- Logs show "Access to the path '/actions-runner' is denied"
+- Container exits with filesystem permission errors
+
+**Root Cause:**
+Mismatch between security context user/group and the GitHub runner image's expected filesystem permissions.
+
+**Solution:**
+```yaml
+# Correct security context configuration
+securityContext:
+  runAsUser: 1001      # Match image's runner user
+  runAsGroup: 1001     # Match image's runner group
+  fsGroup: 1001        # Ensure proper file ownership
+  readOnlyRootFilesystem: false  # Runner needs write access to /actions-runner
+```
+
+#### Issue: Runner Binaries Not Found
+
+**Symptoms:**
+- Logs show "./config.sh: No such file or directory"
+- Container fails to start GitHub runner process
+- Missing runner binaries in `/actions-runner`
+
+**Root Cause:**
+Volume mount over `/actions-runner` directory masks the pre-installed runner binaries.
+
+**Solution:**
+Remove the `/actions-runner` volume mount and let the runner use the pre-installed software:
+```yaml
+# Correct volume mounts - do NOT mount over /actions-runner
+volumeMounts:
+- name: runner-work
+  mountPath: /tmp/runner
+- name: tmp
+  mountPath: /tmp
+# Remove: actions-runner mount that masks binaries
+```
+
+#### Issue: Deprecated Runner Version Error
+
+**Symptoms:**
+- Runner connects but gets rejected with "Runner version X.X.X is deprecated"
+- Authentication succeeds but job assignment fails
+- GitHub logs show version deprecation warnings
+
+**Solution:**
+```yaml
+# Use latest image version
+image: myoung34/github-runner:latest
+# Instead of pinned versions like: myoung34/github-runner:2.321.0
+```
+
+#### Issue: kubectl Command Not Found in Workflows
+
+**Symptoms:**
+- Workflow fails with `kubectl: command not found`
+- CI/CD deployment steps fail
+- Process completed with exit code 127
+
+**Root Cause:**
+GitHub Actions runner environment doesn't include kubectl by default.
+
+**Solution:**
+Add kubectl installation step to workflow:
+```yaml
+- name: Install kubectl
+  run: |
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/arm64/kubectl"
+    chmod +x kubectl
+    sudo mv kubectl /usr/local/bin/
+    kubectl version --client
+```
 
 ### Debugging Commands
 
@@ -328,6 +398,9 @@ kubectl top pods -n github-actions
 
 # Check HPA scaling decisions
 kubectl describe hpa -n github-actions github-runner-hpa
+
+# Verify security contexts are applied correctly
+kubectl get pod -n github-actions -l app.kubernetes.io/name=github-runner -o yaml | grep -A 10 securityContext
 ```
 
 ### GitHub Organization Settings

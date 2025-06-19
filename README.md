@@ -122,6 +122,7 @@ This repository includes comprehensive documentation for both entry-level and ad
 - **[Network Segmentation](docs/network-segmentation.md)** - Microsegmentation with Cilium
 - **[Talos Credential Security](docs/talos-credential-security.md)** - Securing cluster access
 - **[Cilium Troubleshooting](docs/cilium-troubleshooting.md)** - Network monitoring and flow capture fixes
+- **[GitHub Actions Troubleshooting](docs/github-actions-troubleshooting.md)** - Runner and workflow issue resolution
 
 *Each deep-dive document contains both conceptual explanations and practical implementation details.*
 
