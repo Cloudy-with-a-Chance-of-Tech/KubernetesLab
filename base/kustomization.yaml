@@ -14,15 +14,17 @@ resources:
   - namespaces/environments.yaml
   - rbac/github-runner-rbac.yaml
   - rbac/phoenix-runner-rbac.yaml
-  - storage/
+  # Storage handled separately to avoid selector immutability issues
+  # - storage/
   # Add more base resources as needed
   # Note: Talos machine configs are managed by scripts and contain secrets
 
 # Common labels for all base resources
-commonLabels:
-  layer: base
-  managed-by: kustomize
-  cluster: kub
+labels:
+  - pairs:
+      layer: base
+      managed-by: kustomize
+      cluster: kub
 
 # Resource ordering (namespaces first, then RBAC)
 sortOptions:

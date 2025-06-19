@@ -216,8 +216,15 @@ jobs:
       - name: 'Deploy Base Resources'
         run: |
           # Deploy base resources (use original files, not templated)
+          echo "🧪 Validating base infrastructure resources..."
           kubectl apply -k base/ --dry-run=server
           kubectl apply -k base/
+          
+          # Validate and deploy storage separately to avoid commonLabels selector conflicts
+          echo "🧪 Validating storage resources..."
+          kubectl apply -k base/storage/ --dry-run=server
+          echo "💾 Deploying storage resources..."
+          kubectl apply -k base/storage/
 
       - name: 'Deploy Applications (Staging)'
         run: |
@@ -312,7 +319,12 @@ jobs:
       - name: 'Deploy Base Resources'
         run: |
           # Deploy base resources (use original files, not templated)
+          echo "📦 Deploying base infrastructure resources..."
           kubectl apply -k base/
+          
+          # Deploy storage separately to avoid commonLabels selector conflicts
+          echo "💾 Deploying storage resources..."
+          kubectl apply -k base/storage/
 
       - name: 'Deploy Production Applications'
         env:
