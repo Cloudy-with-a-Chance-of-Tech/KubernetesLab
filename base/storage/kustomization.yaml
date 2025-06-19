@@ -8,10 +8,8 @@ resources:
   # Uncomment below for storage testing
   # - storage-test.yaml
 
-commonLabels:
-  app.kubernetes.io/name: local-path-provisioner
-  app.kubernetes.io/component: storage
-  app.kubernetes.io/part-of: kubernetes-lab
+# commonLabels removed to avoid selector immutability issues
+# Labels will be added directly to the deployment template
 
 patches:
   # Ensure proper node affinity for Pi nodes

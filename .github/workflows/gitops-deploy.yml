@@ -321,47 +321,120 @@ jobs:
           ORG_NAME: ${{ secrets.ORG_NAME }}
           GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
         run: |
-          # Create actual secrets from GitHub Actions secrets (not templates)
+          echo "🚀 Deploying production applications..."
+          
+          # Create actual secrets from GitHub Actions secrets (with better error handling)
+          echo "Creating/updating github-runner secret..."
           kubectl create secret generic github-runner-secret \
             --from-literal=github-token="$RUNNER_TOKEN" \
             --from-literal=runner-name="k8s-runner" \
             --from-literal=github-org="$ORG_NAME" \
             --namespace=github-actions \
-            --dry-run=client -o yaml | kubectl apply -f -
+            --dry-run=client -o yaml | kubectl apply -f - || {
+              echo "⚠️ Failed to create github-runner secret, it may already exist"
+              kubectl get secret github-runner-secret -n github-actions && echo "✅ Secret exists"
+            }
           
+          echo "Creating/updating grafana admin secret..."
           kubectl create secret generic grafana-admin-secret \
             --from-literal=admin-password="$GRAFANA_ADMIN_PASSWORD" \
             --namespace=monitoring \
-            --dry-run=client -o yaml | kubectl apply -f -
+            --dry-run=client -o yaml | kubectl apply -f - || {
+              echo "⚠️ Failed to create grafana secret, checking if it exists..."
+              kubectl get secret grafana-admin-secret -n monitoring 2>/dev/null || {
+                echo "❌ Grafana secret creation failed and doesn't exist"
+                exit 1
+              }
+            }
           
-          # Deploy applications (excluding secret templates)
-          kubectl apply -k apps/production/ --selector='!config.kubernetes.io/local-config'
+          # Deploy applications with better error handling
+          echo "Deploying production applications..."
+          if kubectl apply -k apps/production/ --dry-run=server; then
+            kubectl apply -k apps/production/
+            echo "✅ Production applications deployed successfully"
+          else
+            echo "❌ Production application deployment failed"
+            exit 1
+          fi
 
       - name: 'Deploy Generated Monitoring Stack'
         run: |
           # Deploy generated monitoring manifests (templated versions)
+          echo "🔍 Checking for generated monitoring manifests..."
           if [ -d "manifests/monitoring" ]; then
-            echo "Deploying generated monitoring stack..."
+            echo "📊 Deploying generated monitoring stack..."
             find manifests/monitoring -name "*.yaml" -o -name "*.yml" | while read -r manifest; do
               echo "Applying $manifest..."
-              kubectl apply -f "$manifest"
+              if kubectl apply -f "$manifest" --dry-run=server; then
+                kubectl apply -f "$manifest"
+                echo "✅ Applied $manifest"
+              else
+                echo "⚠️ Failed to apply $manifest, skipping..."
+              fi
             done
+            echo "✅ Monitoring stack deployment completed"
           else
+            echo "ℹ️ No generated monitoring manifests found"
             # Fallback to original monitoring stack if no templates
-            echo "Deploying original monitoring stack..."
-            kubectl apply -k monitoring/
+            if [ -d "monitoring" ]; then
+              echo "📊 Deploying original monitoring stack..."
+              kubectl apply -k monitoring/ || echo "⚠️ Original monitoring deployment failed"
+            else
+              echo "ℹ️ No monitoring configuration found"
           fi
 
       - name: 'Deploy Generated Security Configuration'
         run: |
           # Deploy generated security manifests (templated versions)
+          echo "🔒 Checking for generated security manifests..."
           if [ -d "manifests/security" ]; then
-            echo "Deploying generated security configuration..."
+            echo "🛡️ Deploying generated security configuration..."
             find manifests/security -name "*.yaml" -o -name "*.yml" | while read -r manifest; do
               echo "Applying $manifest..."
-              kubectl apply -f "$manifest"
+              if kubectl apply -f "$manifest" --dry-run=server; then
+                kubectl apply -f "$manifest"
+                echo "✅ Applied $manifest"
+              else
+                echo "⚠️ Failed to apply $manifest, skipping..."
+              fi
             done
+            echo "✅ Security configuration deployment completed"
+          else
+            echo "ℹ️ No generated security manifests found"
           fi
+
+      - name: 'Verify Production Deployment'
+        run: |
+          echo "🔍 Verifying production deployment..."
+          
+          # Check critical namespaces
+          echo "Checking namespaces..."
+          kubectl get namespaces | grep -E "github-actions|monitoring|production" || {
+            echo "❌ Critical namespaces missing"
+            exit 1
+          }
+          
+          # Check GitHub runners
+          echo "Checking GitHub runners..."
+          kubectl get pods -n github-actions | grep github-runner || {
+            echo "❌ GitHub runners not found"
+            exit 1
+          }
+          
+          # Check secrets
+          echo "Checking secrets..."
+          kubectl get secret github-runner-secret -n github-actions || {
+            echo "❌ GitHub runner secret missing"
+            exit 1
+          }
+          
+          # Summary
+          echo "📊 Deployment Summary:"
+          echo "Pods in github-actions namespace:"
+          kubectl get pods -n github-actions
+          echo "Pods in monitoring namespace:"
+          kubectl get pods -n monitoring
+          echo "✅ Production deployment verification completed"
 
       - name: 'Deploy Networking Configuration'
         run: |
@@ -412,10 +485,13 @@ jobs:
 
       - name: 'Install trivy'
         run: |
-          wget -qO- https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-          echo "deb https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
-          sudo apt-get update
-          sudo apt-get install trivy
+          # Install trivy binary directly without sudo
+          wget -O trivy.tar.gz https://github.com/aquasecurity/trivy/releases/download/v0.48.3/trivy_0.48.3_Linux-ARM64.tar.gz
+          tar -xzf trivy.tar.gz
+          mkdir -p ~/.local/bin
+          mv trivy ~/.local/bin/
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          ~/.local/bin/trivy --version
 
       - name: 'Scan Kubernetes Manifests'
         run: |

@@ -67,6 +67,9 @@ spec:
     metadata:
       labels:
         app: local-path-provisioner
+        app.kubernetes.io/name: local-path-provisioner
+        app.kubernetes.io/component: storage
+        app.kubernetes.io/part-of: kubernetes-lab
     spec:
       priorityClassName: system-node-critical
       serviceAccountName: local-path-provisioner-service-account
