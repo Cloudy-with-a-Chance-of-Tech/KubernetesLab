@@ -10,6 +10,7 @@ on:
       - 'monitoring/**'
       - 'networking/**'
       - 'security/**'
+      - 'docs/**'
   pull_request:
     branches:
       - main

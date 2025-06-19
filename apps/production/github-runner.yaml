@@ -59,9 +59,8 @@ spec:
           value: "Cloudy-with-a-Chance-of-Tech"
         - name: RUNNER_NAME
           valueFrom:
-            secretKeyRef:
-              name: github-runner-secret
-              key: runner-name
+            fieldRef:
+              fieldPath: metadata.name
         - name: RUNNER_WORKDIR
           value: "/tmp/runner"
         - name: DISABLE_AUTO_UPDATE
