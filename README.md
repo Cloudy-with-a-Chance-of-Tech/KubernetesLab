@@ -110,6 +110,7 @@ This repository includes comprehensive documentation for both entry-level and ad
 - **[GitHub Actions Setup](docs/github-actions-setup.md)** - Self-hosted runners configuration
 - **[GitHub Actions Troubleshooting](docs/github-actions-troubleshooting.md)** - CI/CD pipeline issue resolution
 - **[Quick Reference](docs/quick-reference.md)** - Common commands and operations
+- **[Operations Guide 2025](docs/operations-guide-2025.md)** - Current procedures and maintenance
 
 ### 🔬 **Deep-Dive Technical Documentation**
 - **[Architecture Deep Dive](docs/architecture/README.md)** - PhD-level system design analysis
@@ -123,6 +124,13 @@ This repository includes comprehensive documentation for both entry-level and ad
 - **[Talos Credential Security](docs/talos-credential-security.md)** - Securing cluster access
 - **[Cilium Troubleshooting](docs/cilium-troubleshooting.md)** - Network monitoring and flow capture fixes
 - **[GitHub Actions Troubleshooting](docs/github-actions-troubleshooting.md)** - Runner and workflow issue resolution
+
+### 🔧 **Recent Major Updates (June 2025)**
+- **Portable Deployment System**: Cluster-agnostic templates with automatic configuration detection
+- **GitOps Pipeline Hardening**: Security-focused validation, deployment error recovery, and modular kustomization
+- **Networking Configuration**: BGP peering with pfSense, load balancer IP pools, and proper kustomization
+- **Storage Architecture**: Fixed selector immutability issues and separated storage from base kustomization
+- **CI/CD Robustness**: Sudo-free tool installation, improved error handling, and comprehensive validation steps
 
 *Each deep-dive document contains both conceptual explanations and practical implementation details.*
 

@@ -194,6 +194,48 @@ volumeMounts:
 # Removed: /actions-runner mount (was masking binaries)
 ```
 
+## Recent Critical Fixes (June 2025)
+
+### 1. Deployment Selector Immutability Resolution
+**Problem**: Local-path-provisioner deployment failed due to Kubernetes selector immutability constraints.
+
+**Solution Implemented**:
+- Separated storage deployment from base kustomization
+- Removed conflicting `commonLabels` from storage resources
+- Maintained centralized label management for other base resources
+- Updated workflow to deploy storage independently: `kubectl apply -k base/storage/`
+
+### 2. GitOps Pipeline Robustness Improvements
+**Issues Resolved**:
+- **Sudo Requirements**: Replaced system package management with user-local tool installation
+- **Bash Syntax Errors**: Fixed missing `fi` statements in monitoring deployment logic
+- **Missing Kustomization**: Created proper `kustomization.yaml` for networking configuration
+
+**Improvements**:
+- All tools (kubectl, trivy, kube-score) now install to `~/.local/bin` without sudo
+- Enhanced error handling and validation throughout the pipeline
+- Security-focused linting that blocks on critical issues but allows non-critical warnings
+
+### 3. Networking Configuration Formalization
+**Enhancement**: Created structured kustomization for networking components:
+- BGP peering configuration with pfSense
+- Load balancer IP pool management
+- Network policy enforcement
+- Optional test configurations (commented out by default)
+
+### 4. Security Context Standardization
+**Critical Fix**: Resolved security context misconfigurations:
+- Moved `fsGroup` from container-level to pod-level security context
+- Added proper `seccompProfile` for runtime security
+- Ensured non-root execution across all deployments
+
+### 5. CI/CD Reliability Enhancements
+**Workflow Improvements**:
+- Comprehensive validation steps with early failure detection
+- Deployment verification to confirm resource presence
+- Improved secret creation with fallback and error handling
+- Progressive deployment strategy with clear stage separation
+
 ## Security Considerations
 
 - ✅ Templates contain no sensitive information

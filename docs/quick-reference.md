@@ -18,7 +18,7 @@ nano scripts/validate-setup.sh     # Update CONTROL_PLANE_NODE IP
 ./scripts/validate-setup.sh
 ```
 
-## 🔧 Daily Operations
+## 🔧 Daily Operations - Updated June 2025
 
 ### Cluster Management
 ```bash
@@ -34,17 +34,42 @@ talosctl reboot --nodes 192.168.1.101
 talosctl apply-config --nodes 192.168.1.101 --file base/talos/controlplane.yaml
 ```
 
-### Application Deployment
+### Application Deployment (New Modular Approach)
 ```bash
+# Deploy base infrastructure (excludes storage for selector compatibility)
+kubectl apply -k base/
+
+# Deploy storage separately (avoids selector immutability issues)
+kubectl apply -k base/storage/
+
 # Deploy applications
 kubectl apply -k apps/production/
+
+# Deploy networking configuration (requires new kustomization.yaml)
+kubectl apply -k networking/
 
 # Check application status
 kubectl get pods -n github-actions
 kubectl get pods -n monitoring
+kubectl get pods -n local-path-storage
 
 # View logs
 kubectl logs -f deployment/github-runner -n github-actions
+kubectl logs -f deployment/local-path-provisioner -n local-path-storage
+```
+
+### Portable Template System
+```bash
+# Generate cluster-specific manifests
+scripts/detect-cluster-info.sh info
+scripts/template-substitution.sh substitute
+
+# Deploy generated manifests
+kubectl apply -f manifests/monitoring/
+kubectl apply -f manifests/security/
+
+# Verify template variables
+grep -r "{{.*}}" templates/
 ```
 
 ### Networking & Load Balancing
@@ -148,6 +173,50 @@ kubectl get ciliumloadbalancerippool -o yaml
 ```bash
 kubectl logs -n github-actions deployment/github-runner
 kubectl describe secret github-runner-secret -n github-actions
+```
+
+### Recent Issue Fixes (June 2025)
+
+**Deployment selector immutability error:**
+```bash
+# Check if deployment exists with different selector
+kubectl get deployment local-path-provisioner -n local-path-storage -o yaml | grep -A 5 selector
+
+# Fix: Deploy storage separately
+kubectl apply -k base/storage/
+```
+
+**GitOps pipeline sudo errors:**
+```bash
+# All tools now install to ~/.local/bin
+echo $PATH | grep "$HOME/.local/bin"
+which kubectl trivy kube-score
+```
+
+**Missing kustomization.yaml error:**
+```bash
+# Check for kustomization files
+find . -name "kustomization.yaml"
+# Create if missing (example for networking):
+cat > networking/kustomization.yaml << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - cilium-bgp-config.yaml
+EOF
+```
+
+**Bash syntax errors in workflow:**
+```bash
+# Test shell scripts locally
+bash -n .github/workflows/gitops-deploy.yml  # Won't work directly, extract scripts first
+# Check for missing 'fi' statements in workflow YAML
+```
+
+**Security context issues:**
+```bash
+# Check pod-level vs container-level security context
+kubectl get pod <pod-name> -o yaml | grep -A 10 securityContext
 ```
 
 ### Recovery Commands
