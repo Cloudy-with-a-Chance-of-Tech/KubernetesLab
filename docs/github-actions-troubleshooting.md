@@ -261,6 +261,87 @@ The workflow handles runner replacement by:
    ./kube-score score --ignore-test pod-networkpolicy,pod-probes --output-format ci
    ```
 
+### Issue: Runner Session Conflicts
+
+**Symptoms:**
+- Pods crash with "Registration c20a62ee-3eee-4641-b42c-921d3653172b was not found"
+- Error: "Failed to create a session. The runner registration has been deleted from the server"
+- Multiple pods trying to use the same runner name
+- CrashLoopBackOff status after pod restarts
+
+**Root Cause:**
+GitHub Actions runners register with a specific name, and session conflicts occur when:
+1. Multiple pods try to use the same static runner name
+2. Pod restarts cause stale registrations to conflict with new sessions
+3. Kubernetes replica scaling creates multiple runners with identical names
+
+**Solution: Dynamic Runner Names**
+Use Kubernetes pod name as the runner name to ensure uniqueness:
+
+```yaml
+env:
+- name: RUNNER_NAME
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.name  # Uses pod name: github-runner-7d85f8c659-lsrjj
+```
+
+**Complete Working Configuration:**
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: github-runner
+  namespace: github-actions
+spec:
+  replicas: 3  # Multiple replicas work without conflicts
+  template:
+    spec:
+      containers:
+      - name: runner
+        image: myoung34/github-runner:latest
+        env:
+        - name: RUNNER_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name  # Dynamic name prevents conflicts
+        - name: EPHEMERAL
+          value: "1"  # Ephemeral runners clean up automatically
+```
+
+**Benefits:**
+- Each pod gets a unique runner name (e.g., `github-runner-7d85f8c659-lsrjj`)
+- No session conflicts between multiple replicas
+- Automatic cleanup with ephemeral runners
+- Scales seamlessly from 1 to N replicas
+
+**Recovery Process:**
+If runners are already in a conflicted state:
+1. Delete the deployment to clean up stale registrations:
+   ```bash
+   kubectl delete deployment github-runner -n github-actions
+   ```
+2. Wait for cleanup (10-15 seconds)
+3. Redeploy with dynamic runner names:
+   ```bash
+   kubectl apply -f apps/production/github-runner.yaml
+   ```
+
+**Verification:**
+Check that each pod has a unique runner name:
+```bash
+# List all runner pods
+kubectl get pods -n github-actions
+
+# Check runner name for each pod
+kubectl exec <pod-name> -n github-actions -- env | grep RUNNER_NAME
+```
+
+Each pod should show a unique name like:
+- `RUNNER_NAME=github-runner-7d85f8c659-lsrjj`
+- `RUNNER_NAME=github-runner-7d85f8c659-vgptx`
+- `RUNNER_NAME=github-runner-7d85f8c659-vrfnx`
+
 ### Monitoring and Maintenance
 
 **Regular Health Checks:**
