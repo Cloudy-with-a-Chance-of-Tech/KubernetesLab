@@ -499,7 +499,7 @@ jobs:
           
           # Wait for infrastructure deployments (Cilium, storage, etc.)
           echo "🔍 Waiting for infrastructure deployments..."
-          kubectl wait --for=condition=available --timeout=480s deployment --all -n cilium-system || echo "⚠️ Some infrastructure deployments may still be starting"
+          kubectl wait --for=condition=available --timeout=480s deployment --all -n cilium || echo "⚠️ Some infrastructure deployments may still be starting"
           
           # Wait for monitoring stack
           echo "🔍 Waiting for monitoring deployments..."
@@ -507,7 +507,14 @@ jobs:
           
           # Wait for application deployments with more relaxed timeout
           echo "🔍 Waiting for application deployments..."
-          kubectl wait --for=condition=available --timeout=600s deployment --all -A || echo "⚠️ Some application deployments may still be starting"
+          # Only check core infrastructure namespaces, not all applications
+          echo "Final check of core infrastructure only..."
+          for ns in kube-system cilium monitoring local-path-storage github-actions; do
+            if kubectl get namespace "$ns" >/dev/null 2>&1; then
+              echo "Checking deployments in $ns namespace..."
+              kubectl wait --for=condition=available --timeout=300s deployment --all -n "$ns" || echo "⚠️ Some deployments in $ns may still be starting"
+            fi
+          done
           
           # Check specific application health (non-blocking)
           if kubectl get deployment github-runner -n github-actions 2>/dev/null; then
