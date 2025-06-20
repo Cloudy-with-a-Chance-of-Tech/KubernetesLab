@@ -253,3 +253,51 @@ This should generate visible flows in the Hubble UI.
 - [Talos Security Context Requirements](https://www.talos.dev/)
 - [Cilium Network Observability](https://docs.cilium.io/en/stable/observability/)
 - [Grafana Configuration](https://grafana.com/docs/grafana/latest/setup-grafana/configure-grafana/)
+
+### kube-proxy Removal with Cilium
+
+Since Cilium is configured with `kube-proxy-replacement: true`, kube-proxy can be safely removed to reduce resource overhead and eliminate potential conflicts.
+
+#### Benefits of Removing kube-proxy:
+- **Resource Optimization**: Eliminates 9+ kube-proxy pods (one per node)
+- **Performance**: Cilium's eBPF-based load balancing is more efficient than iptables
+- **Consistency**: Single networking stack eliminates conflicts
+- **Security**: Reduced attack surface with fewer system components
+
+#### Verification Steps:
+
+```bash
+# 1. Confirm Cilium kube-proxy replacement is enabled
+kubectl get configmap -n cilium cilium-config -o yaml | grep "kube-proxy-replacement"
+# Should show: kube-proxy-replacement: "true"
+
+# 2. Check current kube-proxy pods
+kubectl get pods -n kube-system | grep kube-proxy
+
+# 3. Remove kube-proxy DaemonSet
+kubectl delete daemonset -n kube-system kube-proxy
+
+# 4. Verify services still work
+kubectl get svc -A
+kubectl get endpoints -A
+
+# 5. Test connectivity
+# Services should continue working normally through Cilium
+```
+
+#### Post-Removal Validation:
+
+```bash
+# Check that no kube-proxy pods remain
+kubectl get pods -A | grep kube-proxy
+# Should return no results
+
+# Verify Cilium is handling service load balancing
+kubectl get pods -n cilium -l k8s-app=cilium
+# All Cilium pods should be running
+
+# Test internal service connectivity
+kubectl run test --image=alpine --rm -it --restart=Never -- nslookup kubernetes.default.svc.cluster.local
+```
+
+This optimization reduces cluster resource usage while maintaining full service functionality through Cilium's advanced eBPF-based networking.

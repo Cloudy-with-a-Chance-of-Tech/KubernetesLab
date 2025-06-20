@@ -412,3 +412,18 @@ kubectl logs -n cilium deployment/hubble-relay --tail=5
 - **Grafana**: ✅ User 472, non-root, capabilities dropped, seccomp enabled
 - **Prometheus**: ✅ User 65534, non-root, capabilities dropped, seccomp enabled  
 - **Cilium/Hubble**: ✅ Talos-compatible security contexts applied
+
+6. **kube-proxy Removal (June 19, 2025)**
+
+**Optimization**: Removed kube-proxy DaemonSet to eliminate resource overhead and conflicts.
+
+**Rationale**: 
+- Cilium configured with `kube-proxy-replacement: true` handles all service load balancing
+- Eliminates 9+ kube-proxy pods (one per node)
+- eBPF-based load balancing is more efficient than iptables-based kube-proxy
+
+**Verification**:
+```bash
+kubectl get pods -A | grep kube-proxy  # Should return no results
+kubectl get svc -A                     # Services continue working normally
+```
