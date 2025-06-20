@@ -11,6 +11,8 @@ resources:
   - cilium-bgp-config.yaml
   - cilium/hubble-relay-config.yaml
   - cilium/hubble-ui.yaml
+  - cilium/hubble-ui-netpol.yaml
+  - cilium/hubble-relay-netpol.yaml
   # Uncomment to deploy test loadbalancer for BGP verification
   # - test-loadbalancer.yaml
   # Multi-network examples are for reference - deploy manually if needed

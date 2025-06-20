@@ -1,0 +1,59 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hubble-relay-netpol
+  namespace: cilium
+  labels:
+    app.kubernetes.io/name: hubble-relay
+    app.kubernetes.io/component: network-policy
+    app.kubernetes.io/part-of: cilium-cni
+spec:
+  podSelector:
+    matchLabels:
+      k8s-app: hubble-relay
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow Hubble UI to access relay
+  - from:
+    - podSelector:
+        matchLabels:
+          k8s-app: hubble-ui
+    ports:
+    - protocol: TCP
+      port: 80
+  # Allow metrics scraping by Prometheus
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: prometheus
+    ports:
+    - protocol: TCP
+      port: 9966
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow connection to hubble-peer service for flow data
+  - to:
+    - podSelector:
+        matchLabels:
+          k8s-app: cilium
+    ports:
+    - protocol: TCP
+      port: 4244
+  # Allow access to Kubernetes API
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 6443
+    - protocol: TCP
+      port: 443
