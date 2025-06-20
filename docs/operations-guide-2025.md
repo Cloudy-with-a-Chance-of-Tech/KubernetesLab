@@ -151,6 +151,71 @@ cilium hubble ui
 cilium hubble observe --follow
 ```
 
+## Network Observability and Monitoring Access
+
+### Hubble UI - Network Flow Visualization
+
+The Hubble UI provides real-time network flow visualization for the Cilium-powered cluster:
+
+```bash
+# Access Hubble UI via NodePort
+# Available at: http://<any-node-ip>:31235
+kubectl get svc -n cilium hubble-ui
+# Example: http://192.168.1.40:31235
+
+# Check Hubble relay connectivity
+kubectl logs -n cilium deployment/hubble-relay --tail=10
+# Should show successful connections to all cluster nodes
+
+# Verify Hubble is capturing flows
+kubectl get pods -n cilium -l k8s-app=hubble-ui
+kubectl get pods -n cilium -l k8s-app=hubble-relay
+```
+
+**Recent Fix Applied**: Resolved DNS domain mismatch between cluster configuration (`kub-cluster.local`) and Hubble relay peer-service configuration. Updated Hubble relay ConfigMap to use standard `svc.cluster.local` domain for peer communication.
+
+### Grafana Dashboard Access
+
+```bash
+# Access Grafana via LoadBalancer (if available)
+kubectl get svc -n monitoring grafana
+# Grafana admin credentials stored in secret
+kubectl get secret -n monitoring grafana-admin-secret -o jsonpath='{.data.admin-password}' | base64 -d
+```
+
+### Prometheus Metrics Access
+
+```bash
+# Internal cluster access
+kubectl get svc -n monitoring prometheus
+# Available at: http://prometheus.monitoring.svc.kub-cluster.local:9090
+
+# Port-forward for external access
+kubectl port-forward -n monitoring svc/prometheus 9090:9090
+```
+
+### Security Context Compliance - Talos Requirements
+
+All monitoring and observability components are configured with Talos-compatible security contexts:
+
+```yaml
+# Example security context for Talos nodes
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65534  # or specific service user (e.g., 472 for Grafana)
+  runAsGroup: 65534
+  fsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
+containers:
+- securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: [ALL]
+    readOnlyRootFilesystem: true  # where possible
+    runAsNonRoot: true
+```
+
 ## Security Validation
 
 ### Security Context Verification
@@ -267,3 +332,43 @@ Existing clusters should continue working without changes. New deployments autom
 ---
 
 *This operations guide reflects the current state as of June 2025. For the latest updates, see the git commit history and PORTABLE_DEPLOYMENT_SUMMARY.md.*
+
+## Component Status Summary - June 2025
+
+#### ✅ Fully Operational Components
+
+1. **Cilium CNI & Network Policies**
+   - All DaemonSet pods running across cluster nodes
+   - BGP configuration applied and functional
+   - Cluster domain: `kub-cluster.local`
+
+2. **Hubble Network Observability**
+   - ✅ Hubble relay successfully connecting to all cluster nodes
+   - ✅ Hubble UI accessible via NodePort 31235
+   - ✅ DNS domain mismatch resolved (relay peer-service configuration fixed)
+   - ✅ Network flows now visible after configuration fixes
+
+3. **Monitoring Stack**
+   - ✅ Grafana: Running with Talos-compatible security context (user 472)
+   - ✅ Prometheus: Running with Talos-compatible security context (user 65534)
+   - ✅ LoadBalancer access configured for Grafana
+   - ✅ All pods have proper seccomp profiles and capabilities dropped
+
+4. **Security Compliance**
+   - ✅ All pods run as non-root users
+   - ✅ Privilege escalation disabled
+   - ✅ Capabilities dropped to minimum required
+   - ✅ RuntimeDefault seccomp profiles applied
+   - ✅ Read-only root filesystems where feasible
+
+#### Recent Fixes Applied
+
+1. **DNS Domain Consistency**
+   - Fixed Hubble relay peer-service configuration
+   - Updated from custom domain to standard `svc.cluster.local`
+   - Result: Hubble UI now displays network flows
+
+2. **Security Context Hardening**
+   - All monitoring components comply with Talos security requirements
+   - Container and pod-level security contexts properly configured
+   - Resource limits and requests applied to prevent resource exhaustion
