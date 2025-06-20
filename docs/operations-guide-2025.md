@@ -380,9 +380,17 @@ Existing clusters should continue working without changes. New deployments autom
 **Root Cause**: DNS domain mismatch between cluster configuration (`kub-cluster.local`) and Hubble component configurations.
 
 **Fixes Applied**:
-1. **Hubble Relay ConfigMap**: Updated peer-service to use `hubble-peer.cilium.svc.cluster.local:4244`
-2. **Hubble UI Backend**: Updated FLOWS_API_ADDR to use `hubble-relay.cilium.svc.cluster.local:80`
+1. **Hubble Relay ConfigMap**: Updated peer-service to use `hubble-peer.cilium.svc.kub-cluster.local:4244`
+2. **Hubble UI Backend**: Updated FLOWS_API_ADDR to use `hubble-relay.cilium.svc.kub-cluster.local:80`
 3. **Cilium ConfigMap**: Set cluster-name to `kub-cluster` for consistency
+4. **Network Policies**: Added network policies for Hubble UI and Relay for enhanced security
+5. **TLS Configuration Option**: Created alternative no-TLS configuration for environments without certificates (June 20, 2025)
+
+**TLS Configuration Options**:
+* **Standard (with TLS)**: Secure communication with certificates (requires proper CA setup)
+* **Alternative (without TLS)**: Added option to run without certificates when CA infrastructure unavailable
+* **Easy Switching**: New `scripts/configure-hubble-tls.sh` script to switch between modes
+* **Documentation**: See `docs/hubble-tls-configuration.md` for details
 
 **Verification**: 
 ```bash

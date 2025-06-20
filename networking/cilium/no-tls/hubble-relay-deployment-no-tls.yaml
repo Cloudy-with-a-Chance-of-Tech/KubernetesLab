@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hubble-relay
+  namespace: cilium
+  labels:
+    app.kubernetes.io/name: hubble-relay
+    app.kubernetes.io/part-of: cilium
+    k8s-app: hubble-relay
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: hubble-relay
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: hubble-relay
+        app.kubernetes.io/part-of: cilium
+        k8s-app: hubble-relay
+    spec:
+      # This will ensure the relay pod runs on the same node as a Cilium pod
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                k8s-app: cilium
+            topologyKey: kubernetes.io/hostname
+      automountServiceAccountToken: false
+      containers:
+      - name: hubble-relay
+        image: quay.io/cilium/hubble-relay:v1.17.4@sha256:c16de12a64b8b56de62b15c1652d036253b40cd7fa643d7e1a404dc71dc66441
+        imagePullPolicy: IfNotPresent
+        command:
+        - hubble-relay
+        args:
+        - serve
+        - --tls-disabled
+        ports:
+        - name: grpc
+          containerPort: 4245
+        readinessProbe:
+          tcpSocket:
+            port: grpc
+          timeoutSeconds: 3
+        livenessProbe:
+          tcpSocket:
+            port: grpc
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 12
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        startupProbe:
+          tcpSocket:
+            port: grpc
+          failureThreshold: 20
+          initialDelaySeconds: 10
+          periodSeconds: 3
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /etc/hubble-relay
+          name: config
+          readOnly: true
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 65532
+          runAsNonRoot: true
+          runAsUser: 65532
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Always
+      securityContext:
+        fsGroup: 65532
+      serviceAccountName: hubble-relay
+      terminationGracePeriodSeconds: 1
+      volumes:
+      - name: config
+        configMap:
+          name: hubble-relay-config
+          items:
+          - key: config.yaml
+            path: config.yaml

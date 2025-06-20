@@ -141,6 +141,7 @@ The cluster now features robust network observability and monitoring with all co
 - **Access**: http://\<node-ip\>:31235  
 - **Recent Fix**: Resolved DNS domain mismatch between cluster config and Hubble components
 - **Capabilities**: Real-time network flow visualization, service maps, security insights
+- **TLS Options**: Both TLS and non-TLS modes supported (`./scripts/configure-hubble-tls.sh`)
 
 #### 📊 Grafana Dashboard
 - **Status**: ✅ Login issues resolved

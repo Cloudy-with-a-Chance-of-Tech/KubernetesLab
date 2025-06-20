@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hubble-ui
+  namespace: cilium
+  labels:
+    k8s-app: hubble-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: hubble-ui
+  template:
+    metadata:
+      labels:
+        k8s-app: hubble-ui
+    spec:
+      securityContext:
+        runAsUser: 1001
+        fsGroup: 1001
+      containers:
+      - name: frontend
+        image: quay.io/cilium/hubble-ui:v0.11.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+        resources:
+          limits:
+            cpu: 200m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+      - name: backend
+        image: quay.io/cilium/hubble-ui-backend:v0.11.0
+        imagePullPolicy: Always
+        env:
+        - name: EVENTS_SERVER_PORT
+          value: "8090"
+        - name: FLOWS_API_ADDR
+          value: hubble-relay.cilium.svc.kub-cluster.local:4245
+        - name: TLS_DISABLED
+          value: "true"
+        ports:
+        - containerPort: 8090
+          name: grpc
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+        livenessProbe:
+          tcpSocket:
+            port: 8090
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          tcpSocket:
+            port: 8090
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          failureThreshold: 3
