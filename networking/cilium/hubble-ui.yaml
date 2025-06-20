@@ -1,0 +1,140 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hubble-ui
+  namespace: cilium
+  labels:
+    app.kubernetes.io/name: hubble-ui
+    app.kubernetes.io/component: ui
+    app.kubernetes.io/part-of: cilium-cni
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: hubble-ui
+  template:
+    metadata:
+      labels:
+        k8s-app: hubble-ui
+        app.kubernetes.io/name: hubble-ui
+        app.kubernetes.io/component: ui
+        app.kubernetes.io/part-of: cilium-cni
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9967"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: hubble-ui
+      containers:
+      - name: ui
+        image: quay.io/cilium/hubble-ui:v0.11.0
+        imagePullPolicy: Always
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 65534
+          runAsGroup: 65534
+        ports:
+        - name: ui
+          containerPort: 8080
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+            ephemeral-storage: 50Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+            ephemeral-storage: 200Mi
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+          periodSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 5
+          timeoutSeconds: 5
+          periodSeconds: 5
+          failureThreshold: 3
+      - name: backend
+        image: quay.io/cilium/hubble-ui-backend:v0.11.0
+        imagePullPolicy: Always
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 65534
+          runAsGroup: 65534
+        env:
+        - name: EVENTS_SERVER_PORT
+          value: "8090"
+        - name: FLOWS_API_ADDR
+          value: "hubble-relay.cilium.svc.kub-cluster.local:80"
+        ports:
+        - name: grpc
+          containerPort: 8090
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+            ephemeral-storage: 50Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+            ephemeral-storage: 200Mi
+        livenessProbe:
+          tcpSocket:
+            port: 8090
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+          periodSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          tcpSocket:
+            port: 8090
+          initialDelaySeconds: 5
+          timeoutSeconds: 5
+          periodSeconds: 5
+          failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hubble-ui
+  namespace: cilium
+  labels:
+    k8s-app: hubble-ui
+    app.kubernetes.io/name: hubble-ui
+    app.kubernetes.io/component: service
+    app.kubernetes.io/part-of: cilium-cni
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+    nodePort: 31235
+  selector:
+    k8s-app: hubble-ui
