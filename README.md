@@ -132,6 +132,44 @@ This repository includes comprehensive documentation for both entry-level and ad
 - **Storage Architecture**: Fixed selector immutability issues and separated storage from base kustomization
 - **CI/CD Robustness**: Sudo-free tool installation, improved error handling, and comprehensive validation steps
 
+### ✅ Network Observability & Monitoring Fully Operational
+
+The cluster now features robust network observability and monitoring with all components Talos-security compliant:
+
+#### 🌐 Hubble Network Flow Visualization
+- **Status**: ✅ Fully operational
+- **Access**: http://\<node-ip\>:31235  
+- **Recent Fix**: Resolved DNS domain mismatch between cluster config and Hubble components
+- **Capabilities**: Real-time network flow visualization, service maps, security insights
+
+#### 📊 Grafana Dashboard
+- **Status**: ✅ Login issues resolved
+- **Access**: http://192.168.100.96:3000
+- **Credentials**: admin / (from GRAFANA_ADMIN_PASSWORD in .env)
+- **Recent Fix**: Proper admin secret configuration and explicit username setting
+
+#### 📈 Prometheus Metrics
+- **Status**: ✅ Collecting cluster metrics
+- **Access**: Internal cluster or port-forward
+- **Compliance**: Full Talos security context compliance
+
+### 🛠️ Quick Setup & Validation
+
+```bash
+# Validate entire monitoring setup
+./scripts/validate-monitoring-setup.sh
+
+# Manual secret setup if needed
+source .env && kubectl create secret generic grafana-admin-secret -n monitoring \
+  --from-literal=admin-password="$GRAFANA_ADMIN_PASSWORD"
+```
+
+### 📚 Documentation Updates
+
+- **[Talos Troubleshooting Guide](docs/talos-troubleshooting-guide.md)**: Comprehensive guide for DNS issues, security contexts, and component fixes
+- **[Operations Guide 2025](docs/operations-guide-2025.md)**: Updated with current status and access information
+- **[Validation Script](scripts/validate-monitoring-setup.sh)**: Automated setup validation and troubleshooting
+
 *Each deep-dive document contains both conceptual explanations and practical implementation details.*
 
 ### Quick Start Guide

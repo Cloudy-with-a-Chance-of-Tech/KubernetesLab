@@ -87,6 +87,17 @@ This directory contains automation scripts for managing your Talos Kubernetes cl
 - **Usage**: Run anytime to check cluster status
 - **Output**: Detailed status report with troubleshooting suggestions
 
+### `validate-monitoring-setup.sh` ⭐ NEW
+- **Purpose**: Comprehensive validation and setup of monitoring and network observability stack
+- **Features**: 
+  - Validates and creates Grafana admin secrets from .env file
+  - Checks Hubble network observability connectivity  
+  - Verifies Talos security context compliance for all monitoring components
+  - Provides access information for all dashboards and UIs
+- **Auto-fixes**: Recreates empty secrets and restarts deployments as needed
+- **Usage**: Run after cluster setup or when troubleshooting monitoring issues
+- **Output**: Complete access information for Grafana, Hubble UI, and Prometheus
+
 ## Verification and Monitoring Scripts
 
 ### `verify-config.sh`

@@ -372,3 +372,43 @@ Existing clusters should continue working without changes. New deployments autom
    - All monitoring components comply with Talos security requirements
    - Container and pod-level security contexts properly configured
    - Resource limits and requests applied to prevent resource exhaustion
+
+3. **Hubble UI Network Flow Visibility - RESOLVED**
+
+**Issue**: Hubble UI was not displaying network flows despite Cilium/Hubble pods running correctly.
+
+**Root Cause**: DNS domain mismatch between cluster configuration (`kub-cluster.local`) and Hubble component configurations.
+
+**Fixes Applied**:
+1. **Hubble Relay ConfigMap**: Updated peer-service to use `hubble-peer.cilium.svc.cluster.local:4244`
+2. **Hubble UI Backend**: Updated FLOWS_API_ADDR to use `hubble-relay.cilium.svc.cluster.local:80`
+3. **Cilium ConfigMap**: Set cluster-name to `kub-cluster` for consistency
+
+**Verification**: 
+```bash
+kubectl logs -n cilium deployment/hubble-relay --tail=5
+# Should show: "Connected address=<node-ip>:4244" for all cluster nodes
+```
+
+4. **Grafana Login Issue - RESOLVED**
+
+**Issue**: "Unknown error occurred at login" when accessing Grafana dashboard.
+
+**Root Cause**: Empty admin password secret and missing explicit admin username configuration.
+
+**Fixes Applied**:
+1. **Secret Recreation**: Populated `grafana-admin-secret` with correct password from `.env`
+2. **Deployment Update**: Added `GF_SECURITY_ADMIN_USER=admin` environment variable
+3. **Pod Restart**: Applied new configuration
+
+**Access Information**:
+- **URL**: `http://192.168.100.96:3000`
+- **Username**: `admin`
+- **Password**: `<REDACTED_PASSWORD>` (from GRAFANA_ADMIN_PASSWORD in .env)
+
+5. **All Components Talos Security Compliant**
+
+**Security Context Validation**:
+- **Grafana**: ✅ User 472, non-root, capabilities dropped, seccomp enabled
+- **Prometheus**: ✅ User 65534, non-root, capabilities dropped, seccomp enabled  
+- **Cilium/Hubble**: ✅ Talos-compatible security contexts applied
