@@ -24,9 +24,9 @@ spec:
     spec:
       securityContext:
         runAsNonRoot: true
-        runAsUser: 472
+        runAsUser: 472  # Standard Grafana user
         runAsGroup: 472
-        fsGroup: 472
+        fsGroup: 472  # Ensures volume permissions
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -38,15 +38,16 @@ spec:
           capabilities:
             drop:
             - ALL
-          readOnlyRootFilesystem: true  # Enhanced security
+          readOnlyRootFilesystem: false  # Grafana needs to write files
           runAsNonRoot: true
-          runAsUser: 65534  # nobody user for security
-          runAsGroup: 65534
+          # Don't override user/group here - use pod-level settings
         ports:
         - name: http
           containerPort: 3000
           protocol: TCP
         env:
+        - name: GF_SECURITY_ADMIN_USER
+          value: "admin"
         - name: GF_SECURITY_ADMIN_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -74,6 +75,10 @@ spec:
           mountPath: /var/lib/grafana
         - name: config
           mountPath: /etc/grafana/provisioning
+        - name: logs
+          mountPath: /var/log/grafana
+        - name: tmp
+          mountPath: /tmp
         livenessProbe:
           httpGet:
             path: /api/health
@@ -92,12 +97,18 @@ spec:
           failureThreshold: 3
       volumes:
       - name: storage
-        emptyDir:
-          sizeLimit: 2Gi
+        persistentVolumeClaim:
+          claimName: grafana-storage
       - name: config
         configMap:
           name: grafana-config
           defaultMode: 0644
+      - name: logs
+        emptyDir:
+          sizeLimit: 500Mi
+      - name: tmp
+        emptyDir:
+          sizeLimit: 100Mi
       nodeSelector:
         kubernetes.io/arch: arm64
 ---
@@ -198,3 +209,21 @@ spec:
       port: 6443
     - protocol: TCP
       port: 443
+---
+# Grafana PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-storage
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/part-of: monitoring-stack
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 5Gi
