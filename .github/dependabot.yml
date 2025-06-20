@@ -1,0 +1,71 @@
+# Dependabot configuration for KubernetesLab project
+# Monitors Docker images in Kubernetes manifests and GitHub Actions
+# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # Monitor Docker images in root directory Kubernetes manifests
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps"
+      include: "scope"
+    groups:
+      root-images:
+        patterns:
+          - "*"
+
+  # Monitor Docker images in base/ directory manifests
+  - package-ecosystem: "docker"
+    directory: "/base"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "deps(base)"
+      include: "scope"
+    groups:
+      base-images:
+        patterns:
+          - "*"
+
+  # Monitor Docker images in manifests/ directory
+  - package-ecosystem: "docker"
+    directory: "/manifests"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "deps(manifests)"
+      include: "scope"
+    groups:
+      manifest-images:
+        patterns:
+          - "*"
+
+  # Monitor Docker images in security/ directory
+  - package-ecosystem: "docker"
+    directory: "/security"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "deps(security)"
+      include: "scope"
+    groups:
+      security-images:
+        patterns:
+          - "*"
+
+  # Monitor GitHub Actions workflows
+  - package-ecosystem: "github-actions"
+    directory: "/.github/workflows"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "deps(ci)"
+      include: "scope"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
