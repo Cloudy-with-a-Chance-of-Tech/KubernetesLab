@@ -246,6 +246,8 @@ spec:
       port: 9100  # Node exporter
     - protocol: TCP
       port: 10250  # Kubelet metrics
+    - protocol: TCP
+      port: 9153  # CoreDNS metrics
   # Allow access to Kubernetes API
   - to: []
     ports:
