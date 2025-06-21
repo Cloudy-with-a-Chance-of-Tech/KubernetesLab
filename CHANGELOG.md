@@ -2,6 +2,19 @@
 
 ## [Unreleased] - June 2025
 
+### Network and Monitoring Improvements
+
+#### 🔄 **Updated: Hubble UI Service Type Changed to LoadBalancer**
+- **Enhancement**: Changed Hubble UI service type from NodePort to LoadBalancer for improved access
+- **Configuration**: Removed nodePort specification, switched type to LoadBalancer
+- **Documentation**: Updated Operations Guide with new access instructions
+- **Files Changed**: `networking/cilium/hubble-ui.yaml`, `templates/networking/cilium/hubble-ui.yaml`, `docs/operations-guide-2025.md`
+
+#### 🧹 **Cleaned: Prometheus Configuration for CoreDNS**
+- **Improvement**: Consolidated redundant CoreDNS scrape jobs in Prometheus configuration
+- **Fixed**: Removed duplicate job, keeping only the more comprehensive `kube-dns` job
+- **File Changed**: `monitoring/prometheus/prometheus-config.yaml`
+
 ### Major Improvements - Storage Architecture Enhancement
 
 #### 🏗️ **NEW: Worker Node Isolation for Storage Provisioning**

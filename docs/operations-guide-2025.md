@@ -158,10 +158,10 @@ cilium hubble observe --follow
 The Hubble UI provides real-time network flow visualization for the Cilium-powered cluster:
 
 ```bash
-# Access Hubble UI via NodePort
-# Available at: http://<any-node-ip>:31235
+# Access Hubble UI via LoadBalancer
+# Available at: http://<loadbalancer-ip>
 kubectl get svc -n cilium hubble-ui
-# Example: http://192.168.1.40:31235
+# Example: http://192.168.1.100
 
 # Check Hubble relay connectivity
 kubectl logs -n cilium deployment/hubble-relay --tail=10
@@ -344,7 +344,7 @@ Existing clusters should continue working without changes. New deployments autom
 
 2. **Hubble Network Observability**
    - ✅ Hubble relay successfully connecting to all cluster nodes
-   - ✅ Hubble UI accessible via NodePort 31235
+   - ✅ Hubble UI accessible via LoadBalancer
    - ✅ DNS domain mismatch resolved (relay peer-service configuration fixed)
    - ✅ Network flows now visible after configuration fixes
 

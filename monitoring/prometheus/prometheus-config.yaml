@@ -83,6 +83,8 @@ data:
             action: replace
             target_label: kubernetes_pod_name
 
+      # CoreDNS metrics job has been consolidated with kube-dns job below
+
       # Kubernetes services
       - job_name: 'kubernetes-services'
         kubernetes_sd_configs:
@@ -150,6 +152,31 @@ data:
             regex: ([^:]+)(?::\d+)?
             replacement: $1:8080
             target_label: __address__
+
+      # CoreDNS metrics
+      - job_name: 'kube-dns'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - kube-system
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_k8s_app]
+            action: keep
+            regex: kube-dns
+          - source_labels: [__address__]
+            action: replace
+            regex: ([^:]+)(?::\d+)?
+            replacement: $1:9153
+            target_label: __address__
+          - action: labelmap
+            regex: __meta_kubernetes_pod_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: kubernetes_namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: kubernetes_pod_name
 
     alerting:
       alertmanagers:

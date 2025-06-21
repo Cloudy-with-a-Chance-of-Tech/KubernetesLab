@@ -129,12 +129,11 @@ metadata:
     app.kubernetes.io/component: service
     app.kubernetes.io/part-of: cilium-cni
 spec:
-  type: NodePort
+  type: LoadBalancer
   ports:
   - name: http
     port: 80
     targetPort: 8080
     protocol: TCP
-    nodePort: 31235
   selector:
     k8s-app: hubble-ui

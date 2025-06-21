@@ -19,7 +19,7 @@ spec:
         runAsUser: 1001
         fsGroup: 1001
       containers:
-      - name: ui
+      - name: frontend
         image: quay.io/cilium/hubble-ui:v0.11.0
         imagePullPolicy: Always
         ports:
@@ -36,10 +36,6 @@ spec:
           capabilities:
             drop:
             - ALL
-          readOnlyRootFilesystem: false
-        volumeMounts:
-        - name: tmp
-          mountPath: /tmp
       - name: backend
         image: quay.io/cilium/hubble-ui-backend:v0.11.0
         imagePullPolicy: Always
@@ -76,6 +72,3 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 10
           failureThreshold: 3
-      volumes:
-      - name: tmp
-        emptyDir: {}

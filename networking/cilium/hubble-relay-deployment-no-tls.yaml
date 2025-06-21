@@ -40,7 +40,7 @@ spec:
         - hubble-relay
         args:
         - serve
-        # Using config.yaml with tls-disabled: true instead of a command line flag
+        - --tls-disabled
         ports:
         - name: grpc
           containerPort: 4245
