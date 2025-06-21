@@ -214,3 +214,46 @@ base/talos/talosconfig
 *.crt
 **/secrets/
 manifests/
+
+# ==============================================
+# EMERGENCY ADDITION: Additional Security Patterns
+# ==============================================
+# Backup directories that might contain sensitive data
+*backup*/
+*.backup
+*-backup*
+.hubble-backup/
+.talos-backup/
+
+# Private keys and certificates (additional patterns)
+*-key.yaml
+*-cert.yaml
+*private*
+*-private-*
+
+# Common credential patterns
+password*
+*password*
+*credentials*
+*secret*
+bearer-token*
+auth-token*
+
+# CA certificates and PKI
+ca.crt
+ca.key
+server.crt
+server.key
+client.crt
+client.key
+
+# SSH and other keys
+id_rsa*
+id_ecdsa*
+id_ed25519*
+*.pub
+
+# Database credentials
+database.yaml
+db-config.yaml
+*-db-secret*
