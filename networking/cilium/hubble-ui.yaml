@@ -78,7 +78,7 @@ spec:
           mountPath: /etc/nginx/conf.d/default.conf
           subPath: default.conf
         - name: tmp-nginx
-          mountPath: /tmp/nginx
+          mountPath: /tmp
         - name: var-cache-nginx
           mountPath: /var/cache/nginx
         - name: var-run-nginx
@@ -179,6 +179,9 @@ metadata:
     app.kubernetes.io/name: hubble-ui
     app.kubernetes.io/component: service
     app.kubernetes.io/part-of: cilium-cni
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: hubble.kub-cluster
+    external-dns.alpha.kubernetes.io/target: "192.168.100.99"
 spec:
   type: LoadBalancer
   ports:
