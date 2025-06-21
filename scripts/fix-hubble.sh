@@ -38,6 +38,9 @@ if ! kubectl get namespace cilium &>/dev/null; then
     exit 1
 fi
 
+# We no longer need certificates since we're using TLS disabled mode
+echo -e "${YELLOW}→ Using no-TLS mode for Hubble relay...${NC}"
+
 # Apply the fixed configurations
 echo -e "${YELLOW}→ Applying fixed Hubble configurations...${NC}"
 echo -e "  • Updating network policies"
@@ -46,9 +49,9 @@ kubectl apply -f "${REPO_ROOT}/networking/cilium/hubble-ui-netpol.yaml"
 
 # Check if we're in no-tls mode or tls mode
 if kubectl get configmap -n cilium hubble-relay-config -o yaml | grep -q "tls-disabled: true"; then
-    echo -e "  • TLS is disabled, applying no-TLS configuration"
-    kubectl apply -f "${REPO_ROOT}/networking/cilium/no-tls/hubble-relay-config-no-tls.yaml"
-    kubectl apply -f "${REPO_ROOT}/networking/cilium/no-tls/hubble-relay-deployment-no-tls.yaml"
+    echo -e "  • TLS is disabled, applying no-TLS configuration with certificates"
+    kubectl apply -f "${REPO_ROOT}/networking/cilium/no-tls/hubble-relay-config-no-tls-with-certs.yaml"
+    kubectl apply -f "${REPO_ROOT}/networking/cilium/no-tls/hubble-relay-deployment-no-tls-with-certs.yaml"
     kubectl apply -f "${REPO_ROOT}/networking/cilium/no-tls/hubble-ui-deployment-no-tls.yaml"
 else
     echo -e "  • TLS is enabled, fixing standard TLS configuration"
@@ -98,4 +101,3 @@ echo ""
 echo -e "${GREEN}→ Setup complete!${NC}"
 echo -e "   To use Hubble UI locally:"
 echo -e "   ${YELLOW}kubectl port-forward -n cilium svc/hubble-ui 12000:80${NC}"
-echo -e "   Then open http://localhost:12000 in your browser"

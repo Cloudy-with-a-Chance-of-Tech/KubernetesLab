@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hubble-relay-config
+  namespace: cilium
+  labels:
+    app.kubernetes.io/component: networking
+    app.kubernetes.io/name: hubble-relay
+    app.kubernetes.io/part-of: cilium-cni
+    layer: networking
+data:
+  config.yaml: |
+    peer-service: "hubble-peer.cilium.svc.cluster.local:443"
+    listen-address: ":4245"
+    metrics-listen-address: ":9966"
+    pprof: true
+    pprof-address: "localhost"
+    pprof-port: 6061
+    
+    # Disable TLS for both client and server
+    disable-client-tls: true
+    disable-server-tls: true
+    
+    # Redaction settings
+    redact-enabled: false
+    redact-http-headers-allow: ""
+    redact-http-headers-deny: ""
+    redact-http-url-query: false
+    redact-kafka-api-key: false

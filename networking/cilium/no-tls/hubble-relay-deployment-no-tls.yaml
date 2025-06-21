@@ -32,6 +32,68 @@ spec:
                 k8s-app: cilium
             topologyKey: kubernetes.io/hostname
       automountServiceAccountToken: false
+      initContainers:
+      - name: create-empty-certs
+        image: busybox:1.36
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            mkdir -p /tmp/certs
+            echo "-----BEGIN CERTIFICATE-----
+            MIIDSjCCAjKgAwIBAgIQRK+wgNajJ7qJMDmGLvhAazANBgkqhkiG9w0BAQUFADA/
+            MSQwIgYDVQQKExtEaWdpdGFsIFNpZ25hdHVyZSBUcnVzdCBDby4xFzAVBgNVBAMT
+            DkRTVCBSb290IENBIFgzMB4XDTAwMDkzMDIxMTIxOVoXDTIxMDkzMDE0MDExNVow
+            PzEkMCIGA1UEChMbRGlnaXRhbCBTaWduYXR1cmUgVHJ1c3QgQ28uMRcwFQYDVQQD
+            Ew5EU1QgUm9vdCBDQSBYMzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
+            AN+v6ZdQCINXtMxiZfaQguzH0yxrMMpb7NnDfcdAwRgUi+DoM3ZJKuM/IUmTrE4O
+            rz5Iy2Xu/NMhD2XSKtkyj4zl93ewEnu1lcCJo6m67XMuegwGMoOifooUMM0RoOEq
+            OLl5CjH9UL2AZd+3UWODyOKIYepLYYHsUmu5ouJLGiifSKOeDNoJjj4XLh7dIN9b
+            xiqKqy69cK3FCxolkHRyxXtqqzTWMIn/5WgTe1QLyNau7Fqckh49ZLOMxt+/yUFw
+            7BZy1SbsOFU5Q9D8/RhcQPGX69Wam40dutolucbY38EVAjqr2m7xPi71XAicPNaD
+            aeQQmxkqtilX4+U9m5/wAl0CAwEAAaNCMEAwDwYDVR0TAQH/BAUwAwEB/zAOBgNV
+            HQ8BAf8EBAMCAQYwHQYDVR0OBBYEFMSnsaR7LHH62+FLkHX/xBVghYkQMA0GCSqG
+            SIb3DQEBBQUAA4IBAQCjGiybFwBcqR7uKGY3Or+Dxz9LwwmglSBd49lZRNI+DT69
+            ikugdB/OEIKcdBodfpga3csTS7MgROSR6cz8faXbauX+5v3gTt23ADq1cEmv8uXr
+            AvHRAosZy5Q6XkjEGB5YGV8eAlrwDPGxrancWYaLbumR9YbK+rlmM6pZW87ipxZz
+            R8srzJmwN0jP41ZL9c8PDHIyh8bwRLtTcm1D9SZImlJnt1ir/md2cXjbDaJWFBM5
+            JDGFoqgCWjBH4d1QB7wCCZAA62RjYJsWvIjJEubSfZGL+T0yjWW06XyxV3bqxbYo
+            Ob8VZRzI9neWagqNdwvYkQsEjgfbKbYK7p2CNTUQ
+            -----END CERTIFICATE-----" > /tmp/certs/empty.crt
+            echo "-----BEGIN RSA PRIVATE KEY-----
+            MIIEogIBAAKCAQEArBTJpR+B2TYe6AI2+AFQPmpvaIiL7JDgN/CS1tRST+7O9ZLO
+            ZC5FMeGH1r/f9uWqkp4t4rXS7SVIhQ9EyhWDtI+Rpb+Y4ESZXIj3KXP9zzXKOJAm
+            BT9+/2Bx2OzVeGgYPkRRT6EWrt5MF0QwJ5g7zmvHKhvQQLx6hGyjxB0C+JgHfmBg
+            gk5ksw5O3gWN3Zslso4GD8FzW5KTg84UY9H1VZi6p7BVQPLKrQ5v9hcnKOD6cLZ1
+            D1xQMRWmLe+AY/B+UN/5+yWzYNakF5BKveVj5Iu9I4PrL2FYEgyMZP2ZkIrKWXAK
+            C3iUN6MbhoVLkawsX66/PoHijDGk4/G8URJbbwIDAQABAoIBADRdLYPosi40T5X1
+            OPgId8JMDJ08qtBuZfFZYnIhZMVUVBBKV7BhhlsJh7rAO3QI9SrParECEfYdC4ju
+            9zyV8obxsLvz3pJP6EW9GaXELyV2d7+D0V1QsMDNGZxYM16XJdYzDvi6bJ2ykZr3
+            bVZGVsXaxxpuKdrxeeZf5SmIrRKKpYNz0Kz6dQ5jjOHun3AWFPUkZ76BsjLOHifR
+            ibUmEMyyJJuN+dzGPOCxZyaWfZe0D2x5Ths+XgfUZA4Y5izZMBGaWdlTWyh9YitP
+            9UzVnqbefG68MV2SLyOkkIg9JVgZbp5UQfSZhUNqRJFdsdAA0Q3lTJeYTJQPXY8X
+            1th6L+ECgYEA3MUFP2DIbKjl4V3yhGqzN+0QkTKRWLoscurRKcaTEnmP6VKdecKH
+            xzChTQHj228h+JMZn056fvbhk0YAw+isipeTzs4ZNgc5zCY8/Fnmqp0OP3Uc3hDs
+            fTC3YSB3oBnwqrxSlXXDdgwKZsUidngUSE6vDNBi9JRlXkxVJTdB9QkCgYEAx36/
+            0xXg9TXE/XkQPBxHdmkgGyH3ZnVBjGVX9n1n6lNFbx+a/DBnzOkUlF/7ILJOWvbT
+            J8wS7Gll397ygHRu9D6/rIKP5CjfUbli6Y6m+Yahdg24dEP5VOvO/mp+SdKPQ0Y4
+            pmhEOwNpH4cSEYQl8Odi+XKcJZx2CpqkqNbgv+cCgYBqA9+Y/rnzZhp+KRoMsVPU
+            Vq18OdnwDFn2PIK81OWTr2Fd2Rb9HePBnCg5zcKCBiFEBiYeK0XU8qjKqQVGOseA
+            q6J4tYwmLodNzRcd0n7R+QZyDOPdxIaU9kQDWELQeFK0J4/c0vdbxN2IltXqMrZE
+            oLKI/jFuPodsBTMrgXzqcQKBgAKgrdyBFZk1GZZYdwlpIa8IjFwfcqmhoSuSP12Z
+            gZDR8lkGrNmEHXCIQRDtRrBP1CdT+iqS+l1XnwVpkWi6nMeJXZIvQaREORvYCQ4L
+            xSBZWBwdnJuaZTXWN0Ar7HGbAhpzgjXm4Sc+p4dB4RBsvJ0P2SpLYQA+yvbLxlNF
+            garNAoGAAtmUYlbZJvAp884ZsTc8FVhRWUTj6zFqnRoNjKEX1VpUutjj9C3cYNLM
+            CS6y7NTwP3kBhMgKb9T4rMpku7WXTNA5Z0/7OfgIEKP3jKPAzaTDUzbLosNxgJqB
+            D1xJYffdRZAzxbzPuYG9+ULQVj4oiHfbFJckfif4ucFZVQeJXjU=
+            -----END RSA PRIVATE KEY-----" > /tmp/certs/empty.key
+            # Set permissions that allow the hubble-relay container to read these files
+            # The hubble-relay container runs as UID 65532
+            chmod 0644 /tmp/certs/empty.crt
+            chmod 0644 /tmp/certs/empty.key
+            echo "Created certificate files for Hubble Relay with appropriate permissions"
+        volumeMounts:
+        - mountPath: /tmp/certs
+          name: empty-certs
       containers:
       - name: hubble-relay
         image: quay.io/cilium/hubble-relay:v1.17.4@sha256:c16de12a64b8b56de62b15c1652d036253b40cd7fa643d7e1a404dc71dc66441
@@ -40,7 +102,9 @@ spec:
         - hubble-relay
         args:
         - serve
-        # Using config.yaml with tls-disabled: true instead of a command line flag
+        - --tls-hubble-client-cert-file=/tmp/certs/empty.crt
+        - --tls-hubble-client-key-file=/tmp/certs/empty.key
+        # Using both config.yaml with tls-disabled: true AND certificate files
         ports:
         - name: grpc
           containerPort: 4245
@@ -73,6 +137,9 @@ spec:
         - mountPath: /etc/hubble-relay
           name: config
           readOnly: true
+        - mountPath: /tmp/certs
+          name: empty-certs
+          readOnly: true
         securityContext:
           capabilities:
             drop:
@@ -94,3 +161,5 @@ spec:
           items:
           - key: config.yaml
             path: config.yaml
+      - name: empty-certs
+        emptyDir: {}

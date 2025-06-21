@@ -20,7 +20,7 @@ spec:
         fsGroup: 1001
       containers:
       - name: ui
-        image: quay.io/cilium/hubble-ui:v0.11.0
+        image: quay.io/cilium/hubble-ui:v0.13.0
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -41,7 +41,7 @@ spec:
         - name: tmp
           mountPath: /tmp
       - name: backend
-        image: quay.io/cilium/hubble-ui-backend:v0.11.0
+        image: quay.io/cilium/hubble-ui-backend:v0.13.0
         imagePullPolicy: Always
         env:
         - name: EVENTS_SERVER_PORT

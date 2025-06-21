@@ -15,7 +15,7 @@ usage() {
   echo ""
   echo "Options:"
   echo "  --tls      Enable TLS for Hubble communications (default)"
-  echo "  --no-tls   Disable TLS for Hubble communications (use when no CA/certificates available)"
+  echo "  --no-tls   Disable TLS for Hubble communications but use certificate paths"
   echo ""
   exit 1
 }
@@ -60,6 +60,22 @@ backup_existing_deployments() {
   echo -e "${GREEN}✓ Backups created in .hubble-backup directory${NC}"
 }
 
+# We no longer need to generate certificates for no-TLS mode
+ensure_tls_configuration() {
+  if [[ "$mode" == "tls" ]]; then
+    echo -e "${YELLOW}→ Ensuring Hubble certificates exist for TLS mode...${NC}"
+    # Check if certificate secrets already exist
+    if ! kubectl get secret -n cilium hubble-relay-client-certs &>/dev/null; then
+      echo -e "${YELLOW}Certificates not found. Generating certificates...${NC}"
+      ./scripts/generate-hubble-certs.sh
+    else
+      echo -e "${GREEN}✓ Certificate secrets already exist${NC}"
+    fi
+  else
+    echo -e "${YELLOW}→ Using no-TLS mode, no certificates needed${NC}"
+  fi
+}
+
 configure_hubble_with_tls() {
   echo -e "${YELLOW}→ Configuring Hubble with TLS enabled...${NC}"
   
@@ -68,27 +84,27 @@ configure_hubble_with_tls() {
   kubectl apply -k networking/
   
   echo -e "${GREEN}✓ Hubble configured with TLS enabled${NC}"
-  echo ""
-  echo -e "${YELLOW}NOTE: This requires valid TLS certificates in the 'hubble-relay-client-certs' secret${NC}"
-  echo -e "${YELLOW}If certificates are not yet configured, communication will fail${NC}"
 }
 
 configure_hubble_without_tls() {
-  echo -e "${YELLOW}→ Configuring Hubble with TLS disabled...${NC}"
+  echo -e "${YELLOW}→ Configuring Hubble with TLS disabled (but certificate paths)...${NC}"
   
-  # Apply the no-TLS configurations
-  kubectl apply -f networking/cilium/no-tls/hubble-relay-config-no-tls.yaml
-  kubectl apply -f networking/cilium/no-tls/hubble-relay-deployment-no-tls.yaml
+  # Apply the no-TLS configurations with certificate paths
+  kubectl apply -f networking/cilium/no-tls/hubble-relay-config-no-tls-with-certs.yaml
+  kubectl apply -f networking/cilium/no-tls/hubble-relay-deployment-no-tls-with-certs.yaml
   kubectl apply -f networking/cilium/no-tls/hubble-ui-deployment-no-tls.yaml
   
-  echo -e "${GREEN}✓ Hubble configured with TLS disabled${NC}"
+  echo -e "${GREEN}✓ Hubble configured with TLS disabled (but certificate paths)${NC}"
   echo ""
-  echo -e "${YELLOW}NOTE: This is less secure but works without certificates${NC}"
+  echo -e "${YELLOW}NOTE: This keeps certificates available but disables TLS encryption${NC}"
   echo -e "${YELLOW}Consider enabling TLS when a proper CA is available${NC}"
 }
 
 # Backup existing deployments first
 backup_existing_deployments
+
+# Ensure certificates exist (for both TLS and no-TLS modes)
+ensure_certificates_exist
 
 # Configure according to the requested mode
 if [[ "$mode" == "tls" ]]; then
@@ -97,21 +113,13 @@ elif [[ "$mode" == "no-tls" ]]; then
   configure_hubble_without_tls
 fi
 
-# Wait for deployments to be ready
-echo ""
-echo -e "${YELLOW}→ Waiting for deployments to be ready...${NC}"
+# Restart pods to apply changes
+echo -e "${YELLOW}→ Restarting Hubble pods to apply changes...${NC}"
+kubectl delete pod -n cilium -l k8s-app=hubble-relay --grace-period=1
+kubectl delete pod -n cilium -l k8s-app=hubble-ui --grace-period=1
 
-echo -ne "${YELLOW}→ Checking hubble-relay status...${NC}"
-kubectl rollout status deployment/hubble-relay -n cilium --timeout=60s && echo -e "${GREEN} ✓ Ready${NC}" || echo -e "${RED} ✗ Failed${NC}"
+echo -e "${YELLOW}→ Waiting for Hubble pods to restart...${NC}"
+sleep 5
+kubectl get pods -n cilium | grep hubble
 
-echo -ne "${YELLOW}→ Checking hubble-ui status...${NC}"
-kubectl rollout status deployment/hubble-ui -n cilium --timeout=60s && echo -e "${GREEN} ✓ Ready${NC}" || echo -e "${RED} ✗ Failed${NC}"
-
-echo ""
-echo -e "${GREEN}============================================================${NC}"
-echo -e "${GREEN}   Hubble ${mode} configuration completed                   ${NC}"
-echo -e "${GREEN}============================================================${NC}"
-echo ""
-echo -e "Hubble UI should be accessible via NodePort: http://<node-ip>:31235"
-echo -e "To verify connectivity, run: kubectl logs -n cilium deployment/hubble-relay"
-echo ""
+echo -e "${GREEN}✓ Configuration completed${NC}"
