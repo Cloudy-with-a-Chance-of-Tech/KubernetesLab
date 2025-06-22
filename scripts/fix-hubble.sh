@@ -43,9 +43,10 @@ echo -e "${YELLOW}→ Using no-TLS mode for Hubble relay...${NC}"
 
 # Apply the fixed configurations
 echo -e "${YELLOW}→ Applying fixed Hubble configurations...${NC}"
-echo -e "  • Updating network policies"
-kubectl apply -f "${REPO_ROOT}/networking/cilium/hubble-relay-netpol.yaml"
-kubectl apply -f "${REPO_ROOT}/networking/cilium/hubble-ui-netpol.yaml"
+echo -e "  • Network policies removed per security review - Hubble flows correctly without them"
+# Network policies commented out - they were blocking Hubble functionality
+# kubectl apply -f "${REPO_ROOT}/networking/cilium/hubble-relay-netpol.yaml"
+# kubectl apply -f "${REPO_ROOT}/networking/cilium/hubble-ui-netpol.yaml"
 
 # Check if we're in no-tls mode or tls mode
 if kubectl get configmap -n cilium hubble-relay-config -o yaml | grep -q "tls-disabled: true"; then

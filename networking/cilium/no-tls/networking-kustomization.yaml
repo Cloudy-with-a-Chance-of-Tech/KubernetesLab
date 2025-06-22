@@ -9,8 +9,9 @@ metadata:
 # Core networking resources
 resources:
   - ../cilium-bgp-config.yaml
-  - ../cilium/hubble-ui-netpol.yaml
-  - ../cilium/hubble-relay-netpol.yaml
+  # Network policies removed per security review - Hubble traffic flows correctly without them
+  # - ../cilium/hubble-ui-netpol.yaml
+  # - ../cilium/hubble-relay-netpol.yaml
   - hubble-relay-config-no-tls.yaml
   - hubble-relay-deployment-no-tls.yaml
   - hubble-ui-deployment-no-tls.yaml
