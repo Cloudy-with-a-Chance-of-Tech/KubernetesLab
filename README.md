@@ -53,11 +53,12 @@ Every service runs with:
 ### Real Production Workloads
 
 This cluster doesn't just run demos—it handles:
-- Home automation backend services
+- **Home automation integration** with comprehensive IoT metrics collection
 - Development environments for multiple projects
 - CI/CD pipelines for both personal and work projects
 - Network services (DNS, VPN, monitoring)
 - Data processing and analytics workloads
+- **External monitoring** with static IP access for integration tools
 
 ### Enterprise Patterns at Home Scale
 
@@ -154,22 +155,63 @@ The cluster now features robust network observability and monitoring with all co
 - **Access**: Internal cluster or port-forward
 - **Compliance**: Full Talos security context compliance
 
+### 🌐 External Access with Static IP Configuration
+
+All monitoring and observability services are now accessible externally via LoadBalancer services with static IP addresses:
+
+| Service | Static IP | URL | Purpose |
+|---------|-----------|-----|---------|
+| **Hubble UI** | `192.168.100.99` | `http://192.168.100.99` | Network flow visualization and security insights |
+| **Prometheus** | `192.168.100.100` | `http://192.168.100.100:9090` | Metrics collection and querying |
+| **Grafana** | `192.168.100.101` | `http://192.168.100.101:3000` | Dashboards and visualization (admin/\<from .env\>) |
+
+**Key Benefits:**
+- ✅ Consistent access URLs that don't change with pod restarts
+- ✅ Direct external access without port-forwarding
+- ✅ Integration with external systems (Home Assistant, alerting tools)
+- ✅ Load balancer health checks and automatic failover
+
+### 🏠 Home Assistant Integration
+
+The cluster automatically collects and visualizes Home Assistant metrics:
+
+**Prometheus Integration:**
+- Scrapes Home Assistant `/api/prometheus` endpoint every 60 seconds
+- Uses secure bearer token authentication (managed via CI/CD)
+- Collects IoT device states, sensor readings, and automation metrics
+
+**Grafana Dashboards:**
+- **Home Assistant Overview**: Device states, sensor trends, and automation status
+- **Kubernetes Cluster**: Node metrics, pod status, and resource utilization
+- **Cilium Network**: Traffic flows, policies, and security insights
+
+**Access**: Navigate to [Grafana](http://192.168.100.101:3000) → Dashboards → Home Assistant
+
 ### 🛠️ Quick Setup & Validation
 
 ```bash
 # Validate entire monitoring setup
 ./scripts/validate-monitoring-setup.sh
 
+# Validate all kustomizations
+./scripts/validate-kustomizations.sh
+
 # Manual secret setup if needed
 source .env && kubectl create secret generic grafana-admin-secret -n monitoring \
   --from-literal=admin-password="$GRAFANA_ADMIN_PASSWORD"
+
+# Check static IP assignments
+kubectl get svc -n monitoring -o wide
+kubectl get svc -n cilium -o wide
 ```
 
 ### 📚 Documentation Updates
 
+- **[Static IP Configuration](docs/static-ip-configuration.md)**: LoadBalancer setup and network requirements
+- **[Home Assistant Integration](docs/homeassistant-integration.md)**: Complete setup guide for IoT metrics
+- **[Monitoring External Access](docs/monitoring-external-access.md)**: External access patterns and troubleshooting
 - **[Talos Troubleshooting Guide](docs/talos-troubleshooting-guide.md)**: Comprehensive guide for DNS issues, security contexts, and component fixes
 - **[Operations Guide 2025](docs/operations-guide-2025.md)**: Updated with current status and access information
-- **[Validation Script](scripts/validate-monitoring-setup.sh)**: Automated setup validation and troubleshooting
 
 *Each deep-dive document contains both conceptual explanations and practical implementation details.*
 
@@ -630,7 +672,7 @@ Most common issues and their solutions:
 | Cilium installation fails | CNI conflict or network policy | Clean install with `./scripts/destroy-cluster.sh` then retry |
 | Pods stuck in Pending | Resource constraints | Check `kubectl describe pod` and node resources |
 | Service unreachable | BGP route not advertised | Check Cilium BGP policies and pfSense routing |
-| LoadBalancer stuck pending | BGP peering issue | Verify `kubectl get ciliumnodes` and pfSense BGP config |
+| LoadBalancer stuck pending | BGP peering issue or static IP conflict | Verify `kubectl get ciliumnodes`, check pfSense BGP config, ensure static IPs 192.168.100.99-101 are available |
 | Node not ready | Talos system issue | Check `talosctl health` and `talosctl logs` |
 | Storage issues | PV/PVC mismatch | Verify storage class and access modes |
 | GitHub runner not appearing | Authentication or permission issue | Check `kubectl logs deployment/github-runner -n github-actions` and verify secrets |
