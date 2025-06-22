@@ -13,6 +13,7 @@ resources:
   - prometheus/prometheus-deployment.yaml
   - grafana/grafana-deployment.yaml
   - node-exporter/node-exporter.yaml
+  - secrets/homeassistant-secret.yaml
   # Add more monitoring components as they're created
   # - alertmanager/alertmanager-deployment.yaml
   # Note: metrics-server is deployed separately as it requires kube-system namespace

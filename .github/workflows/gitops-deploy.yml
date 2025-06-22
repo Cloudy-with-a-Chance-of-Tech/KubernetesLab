@@ -335,6 +335,7 @@ jobs:
           RUNNER_TOKEN: ${{ secrets.RUNNER_TOKEN }}
           ORG_NAME: ${{ secrets.ORG_NAME }}
           GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+          HOMEASSISTANT_TOKEN: ${{ secrets.HOMEASSISTANT_TOKEN }}
         run: |
           echo "🚀 Deploying production applications..."
           
@@ -358,6 +359,18 @@ jobs:
               echo "⚠️ Failed to create grafana secret, checking if it exists..."
               kubectl get secret grafana-admin-secret -n monitoring 2>/dev/null || {
                 echo "❌ Grafana secret creation failed and doesn't exist"
+                exit 1
+              }
+            }
+
+          echo "Creating/updating Home Assistant token secret..."
+          kubectl create secret generic homeassistant-token \
+            --from-literal=token="$HOMEASSISTANT_TOKEN" \
+            --namespace=monitoring \
+            --dry-run=client -o yaml | kubectl apply -f - || {
+              echo "⚠️ Failed to create Home Assistant secret, checking if it exists..."
+              kubectl get secret homeassistant-token -n monitoring 2>/dev/null || {
+                echo "❌ Home Assistant secret creation failed and doesn't exist"
                 exit 1
               }
             }

@@ -79,6 +79,9 @@ spec:
           mountPath: /prometheus
         - name: tmp
           mountPath: /tmp
+        - name: homeassistant-token
+          mountPath: /etc/prometheus/secrets/homeassistant-token
+          readOnly: true
         livenessProbe:
           httpGet:
             path: /-/healthy
@@ -106,6 +109,10 @@ spec:
       - name: tmp
         emptyDir:
           sizeLimit: 1Gi
+      - name: homeassistant-token
+        secret:
+          secretName: homeassistant-token
+          defaultMode: 0400
       nodeSelector:
         kubernetes.io/arch: arm64
       tolerations:

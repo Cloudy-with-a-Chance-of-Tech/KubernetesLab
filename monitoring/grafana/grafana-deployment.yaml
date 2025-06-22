@@ -586,3 +586,121 @@ data:
       "uid": "cilium-network",
       "version": 1
     }
+  homeassistant.json: |
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": "-- Grafana --",
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "type": "dashboard"
+          }
+        ]
+      },
+      "editable": true,
+      "panels": [
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "unit": "celsius"
+            }
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 6,
+            "x": 0,
+            "y": 0
+          },
+          "id": 1,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ]
+            }
+          },
+          "targets": [
+            {
+              "expr": "temperature_c{source=\"homeassistant\"}",
+              "legendFormat": "{{friendly_name}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Temperature Sensors",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "max": 100,
+              "min": 0
+            }
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 6,
+            "x": 6,
+            "y": 0
+          },
+          "id": 2,
+          "targets": [
+            {
+              "expr": "humidity_percent{source=\"homeassistant\"}",
+              "legendFormat": "{{friendly_name}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Humidity Sensors",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "watt"
+            }
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 0
+          },
+          "id": 3,
+          "targets": [
+            {
+              "expr": "power_w{source=\"homeassistant\"}",
+              "legendFormat": "{{friendly_name}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Power Consumption",
+          "type": "timeseries"
+        }
+      ],
+      "schemaVersion": 27,
+      "style": "dark",
+      "tags": [
+        "homeassistant",
+        "iot"
+      ],
+      "time": {
+        "from": "now-24h",
+        "to": "now"
+      },
+      "title": "Home Assistant Monitoring",
+      "uid": "homeassistant",
+      "version": 1
+    }

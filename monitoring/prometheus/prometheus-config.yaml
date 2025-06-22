@@ -206,6 +206,21 @@ data:
             action: replace
             target_label: kubernetes_pod_name
 
+      # Home Assistant metrics
+      - job_name: 'homeassistant'
+        scrape_interval: 60s
+        metrics_path: /api/prometheus
+        scheme: https
+        bearer_token_file: /etc/prometheus/secrets/homeassistant-token/token
+        tls_config:
+          insecure_skip_verify: true  # Adjust based on your HA SSL setup
+        static_configs:
+          - targets: ['homeassistant.homelab.local:8123']
+        relabel_configs:
+          - source_labels: [__name__]
+            target_label: source
+            replacement: homeassistant
+
     alerting:
       alertmanagers:
         - static_configs:
