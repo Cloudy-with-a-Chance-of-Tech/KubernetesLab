@@ -1,0 +1,41 @@
+# Kustomization for HashiCorp Vault deployment
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: vault
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+# Resource files
+resources:
+- vault-namespace.yaml
+- vault-rbac.yaml
+- vault-config.yaml
+- vault-storage.yaml
+- vault-deployment.yaml
+- vault-service.yaml
+- vault-network-policy.yaml
+
+# Common labels for all resources
+commonLabels:
+  app.kubernetes.io/managed-by: kustomize
+  app.kubernetes.io/part-of: security-stack
+
+# Namespace for all resources
+namespace: vault
+
+# Configuration transformers
+configurations:
+- kustomizeconfig.yaml
+
+# Images to update (for version management)
+images:
+- name: hashicorp/vault
+  newTag: "1.15.0"
+
+# Patches for environment-specific customization
+patchesStrategicMerge: []
+
+# JSON/YAML patches
+patches: []

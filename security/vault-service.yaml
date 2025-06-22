@@ -1,0 +1,71 @@
+# Vault Services
+# Internal service for cluster communication and external LoadBalancer for access
+---
+# Internal service for cluster communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault
+  namespace: vault
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: security-stack
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  type: ClusterIP
+  ports:
+  - name: api
+    port: 8200
+    targetPort: 8200
+    protocol: TCP
+  - name: cluster
+    port: 8201
+    targetPort: 8201
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: vault
+  # Enable session affinity for stateful connections
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800  # 3 hours
+---
+# External LoadBalancer service for external access
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault-external
+  namespace: vault
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: security-stack
+    app.kubernetes.io/managed-by: kustomize
+    service.kubernetes.io/type: LoadBalancer
+  annotations:
+    # MetalLB annotations for LoadBalancer configuration
+    metallb.universe.tf/allow-shared-ip: "vault"
+    metallb.universe.tf/address-pool: "vault-pool"
+spec:
+  type: LoadBalancer
+  # Static IP assignment for consistent access
+  loadBalancerIP: "192.168.100.102"
+  ports:
+  - name: vault-api
+    port: 8200
+    targetPort: 8200
+    protocol: TCP
+  - name: vault-ui
+    port: 80
+    targetPort: 8200
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: vault
+  # Source IP preservation for security logging
+  externalTrafficPolicy: Local
+  # Enable session affinity for stateful connections
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800  # 3 hours

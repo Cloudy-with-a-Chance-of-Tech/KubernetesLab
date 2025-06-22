@@ -9,6 +9,7 @@ The following services are configured with static LoadBalancer IP addresses for 
 | Hubble UI | `cilium` | `192.168.100.99` | `80` | `http://192.168.100.99` |
 | Prometheus | `monitoring` | `192.168.100.100` | `9090` | `http://192.168.100.100:9090` |
 | Grafana | `monitoring` | `192.168.100.101` | `3000` | `http://192.168.100.101:3000` |
+| Vault | `vault` | `192.168.100.102` | `8200` | `http://192.168.100.102:8200` |
 
 ## 🔧 Configuration Details
 
@@ -43,11 +44,13 @@ spec:
 - `networking/cilium/hubble-ui.yaml` - Hubble UI static IP
 - `monitoring/prometheus/prometheus-deployment.yaml` - Prometheus static IP  
 - `monitoring/grafana/grafana-deployment.yaml` - Grafana static IP
+- `security/vault-service.yaml` - Vault static IP
 
 **Template Configurations**:
 - `templates/networking/cilium/hubble-ui.yaml` - Template for multi-cluster
 - `templates/monitoring/prometheus/prometheus-deployment.yaml` - Template for multi-cluster
 - `templates/monitoring/grafana/grafana-deployment.yaml` - Template for multi-cluster
+- `templates/security/vault-service.yaml` - Template for multi-cluster
 
 ## 🔍 Verification Commands
 

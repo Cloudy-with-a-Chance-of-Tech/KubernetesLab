@@ -1,0 +1,95 @@
+# HashiCorp Vault ServiceAccount and RBAC
+# Follows principle of least privilege with minimal required permissions
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault
+  namespace: vault
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: security-stack
+    app.kubernetes.io/managed-by: kustomize
+automountServiceAccountToken: true  # Required for Kubernetes auth
+---
+# Role for Vault to interact with Kubernetes API for auth backend
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: vault-auth
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: security-stack
+rules:
+# Minimal permissions for Kubernetes auth backend
+- apiGroups: [""]
+  resources: ["serviceaccounts"]
+  verbs: ["get"]
+- apiGroups: [""]
+  resources: ["serviceaccounts/token"]
+  verbs: ["create"]
+# Required for TokenReview (validating service account tokens)
+- apiGroups: ["authentication.k8s.io"]
+  resources: ["tokenreviews"]
+  verbs: ["create"]
+# Required for SubjectAccessReview (checking permissions)
+- apiGroups: ["authorization.k8s.io"]
+  resources: ["subjectaccessreviews"]
+  verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: vault-auth
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: security-stack
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: vault-auth
+subjects:
+- kind: ServiceAccount
+  name: vault
+  namespace: vault
+---
+# Additional role for local namespace operations
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: vault-local
+  namespace: vault
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: security-stack
+rules:
+# Required for leader election in HA mode
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "create", "update", "patch", "watch"]
+# Required for managing secrets (if needed)
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vault-local
+  namespace: vault
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: security-stack
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: vault-local
+subjects:
+- kind: ServiceAccount
+  name: vault
+  namespace: vault

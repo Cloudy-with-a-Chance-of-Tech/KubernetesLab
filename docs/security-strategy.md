@@ -35,11 +35,15 @@ For most home labs, GitHub Actions secrets are perfect. They're simple, secure, 
 
 **Pro tip:** Use a password manager to generate and store these secrets. I use Bitwarden, but any reputable password manager works.
 
-#### Advanced Approach: Vault + External Secrets Operator (Learn This Later)
-Once you're comfortable with the basics, HashiCorps's Vault with External Secrets Operator is the professional approach:
+#### Production Approach: Vault + External Secrets Operator (Now Deployed)
+HashiCorp's Vault with External Secrets Operator is now production-ready in this cluster:
 
 ```bash
-# Install External Secrets Operator
+# Vault is deployed and accessible
+# External URL: http://192.168.100.102:8200
+# Check status: scripts/manage-vault.sh status
+
+# Install External Secrets Operator (when ready)
 helm repo add external-secrets https://charts.external-secrets.io
 helm install external-secrets external-secrets/external-secrets -n external-secrets-system --create-namespace
 
@@ -47,7 +51,7 @@ helm install external-secrets external-secrets/external-secrets -n external-secr
 kubectl apply -f security/external-secrets-vault.yaml
 ```
 
-This teaches you enterprise-grade secret management patterns you'll encounter in production environments.
+This is enterprise-grade secret management that you'll encounter in production environments.
 
 ### 3. Secret Template Structure (The Safe Pattern)
 

@@ -71,6 +71,13 @@ else
     print_status 1 "Grafana static IP not configured"
 fi
 
+# Check Vault service
+if kubectl get svc vault-external -n vault -o jsonpath='{.spec.loadBalancerIP}' 2>/dev/null | grep -q "192.168.100.102"; then
+    print_status 0 "Vault static IP configured (192.168.100.102)"
+else
+    print_status 1 "Vault static IP not configured"
+fi
+
 echo ""
 echo "3️⃣  Validating Monitoring Stack"
 echo "------------------------------"
@@ -178,7 +185,44 @@ for kustomization in "${KUSTOMIZATIONS[@]}"; do
 done
 
 echo ""
-echo "7️⃣  Documentation and Security Check"
+echo "8️⃣  Validating HashiCorp Vault"
+echo "-----------------------------"
+
+# Check Vault deployment
+if kubectl get deployment vault -n vault &>/dev/null; then
+    VAULT_READY=$(kubectl get deployment vault -n vault -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    if [ "$VAULT_READY" -gt 0 ]; then
+        print_status 0 "Vault deployment ready ($VAULT_READY replicas)"
+    else
+        print_status 1 "Vault deployment not ready"
+    fi
+else
+    print_warning "Vault deployment not found (may not be deployed yet)"
+fi
+
+# Check Vault secrets
+if kubectl get secret vault-root-token -n vault &>/dev/null; then
+    print_status 0 "Vault root token secret exists"
+else
+    print_warning "Vault root token secret not found (initialization may be needed)"
+fi
+
+if kubectl get secret vault-unseal-keys -n vault &>/dev/null; then
+    print_status 0 "Vault unseal keys secret exists"
+else
+    print_warning "Vault unseal keys secret not found (initialization may be needed)"
+fi
+
+# Check Vault network policies
+VAULT_POLICIES=$(kubectl get cnp -n vault 2>/dev/null | wc -l)
+if [ "$VAULT_POLICIES" -gt 1 ]; then
+    print_status 0 "Vault network policies configured ($((VAULT_POLICIES-1)) policies)"
+else
+    print_warning "Vault network policies not found"
+fi
+
+echo ""
+echo "9️⃣  Documentation and Security Check"
 echo "-----------------------------------"
 
 # Check for sensitive files that shouldn't exist
@@ -233,6 +277,7 @@ echo "======================"
 echo "📊 Grafana:    http://192.168.100.101:3000"
 echo "📈 Prometheus: http://192.168.100.100:9090"
 echo "🌐 Hubble UI:  http://192.168.100.99"
+echo "🔐 Vault:      http://192.168.100.102:8200"
 
 echo ""
 echo "🎉 Validation Complete!"

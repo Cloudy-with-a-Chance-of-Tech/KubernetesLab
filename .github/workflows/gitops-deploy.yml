@@ -432,6 +432,85 @@ jobs:
             echo "ℹ️ No generated security manifests found"
           fi
 
+      - name: 'Deploy HashiCorp Vault'
+        run: |
+          echo "🔐 Deploying HashiCorp Vault..."
+          
+          # Apply Vault deployment using individual files for better control
+          echo "Deploying Vault namespace..."
+          kubectl apply -f security/vault-namespace.yaml
+          
+          echo "Deploying Vault RBAC..."
+          kubectl apply -f security/vault-rbac.yaml
+          
+          echo "Deploying Vault configuration..."
+          kubectl apply -f security/vault-config.yaml
+          
+          echo "Deploying Vault storage..."
+          kubectl apply -f security/vault-storage.yaml
+          
+          echo "Deploying Vault deployment..."
+          kubectl apply -f security/vault-deployment.yaml
+          
+          echo "Deploying Vault services..."
+          kubectl apply -f security/vault-service.yaml
+          
+          echo "Deploying Vault network policies..."
+          kubectl apply -f security/vault-network-policy.yaml
+          
+          # Wait for Vault to be ready
+          echo "Waiting for Vault deployment to be ready..."
+          kubectl wait --for=condition=available deployment/vault -n vault --timeout=300s || {
+            echo "⚠️ Vault deployment not ready within timeout, checking status..."
+            kubectl get pods -n vault
+            kubectl describe deployment vault -n vault
+          }
+          
+          echo "✅ Vault deployment completed"
+
+      - name: 'Initialize Vault (if needed)'
+        run: |
+          echo "🔐 Checking Vault initialization status..."
+          
+          # Make sure initialization script is executable
+          chmod +x scripts/initialize-vault.sh
+          
+          # Wait a bit more for Vault pod to be fully ready
+          sleep 30
+          
+          # Check if Vault is already initialized
+          VAULT_EXTERNAL_IP=$(kubectl get svc vault-external -n vault -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+          
+          if [ -n "$VAULT_EXTERNAL_IP" ]; then
+            VAULT_ADDR="http://$VAULT_EXTERNAL_IP:8200"
+            echo "Vault accessible at: $VAULT_ADDR"
+            
+            # Check initialization status
+            if curl -s "$VAULT_ADDR/v1/sys/init" | grep -q '"initialized":false'; then
+              echo "Vault is not initialized, running initialization..."
+              scripts/initialize-vault.sh || {
+                echo "⚠️ Vault initialization failed, manual intervention may be required"
+                kubectl logs -l app.kubernetes.io/name=vault -n vault --tail=50
+              }
+            else
+              echo "Vault is already initialized"
+              
+              # Try to unseal if needed
+              if curl -s "$VAULT_ADDR/v1/sys/health" | grep -q '"sealed":true'; then
+                echo "Vault is sealed, attempting to unseal..."
+                UNSEAL_KEY=$(kubectl get secret vault-unseal-keys -n vault -o jsonpath='{.data.unseal-key}' 2>/dev/null | base64 -d || echo "")
+                if [ -n "$UNSEAL_KEY" ]; then
+                  curl -s -X PUT "$VAULT_ADDR/v1/sys/unseal" -d "{\"key\":\"$UNSEAL_KEY\"}" || echo "⚠️ Failed to unseal Vault"
+                else
+                  echo "⚠️ Unseal key not found"
+                fi
+              fi
+            fi
+          else
+            echo "⚠️ Vault LoadBalancer IP not yet assigned, skipping initialization"
+            echo "Vault can be initialized manually later using: scripts/initialize-vault.sh"
+          fi
+
       - name: 'Verify Production Deployment'
         run: |
           echo "🔍 Verifying production deployment..."

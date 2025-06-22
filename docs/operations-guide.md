@@ -47,6 +47,19 @@ echo "🏃 GitHub Runners:"
 kubectl get pods -n github-actions -o wide
 echo
 
+# Check Vault status
+echo "🔐 Vault Status:"
+kubectl get pods -n vault -o wide
+echo
+
+# Quick Vault health check
+if kubectl get pod -n vault -l app.kubernetes.io/name=vault &>/dev/null; then
+    VAULT_POD=$(kubectl get pod -n vault -l app.kubernetes.io/name=vault -o jsonpath='{.items[0].metadata.name}')
+    echo "Vault Health:"
+    kubectl exec -n vault $VAULT_POD -- vault status 2>/dev/null || echo "Vault not accessible"
+fi
+echo
+
 # Check BGP status (if Cilium is available)
 echo "🌐 BGP Status:"
 kubectl get ciliumbgppeeringpolicy -o wide 2>/dev/null || echo "Cilium BGP not available"
@@ -753,6 +766,63 @@ echo "4. Update monitoring alerts"
 - Monitor cluster resource usage
 - Check for failed pods or jobs
 - Review security events
+
+## Vault Operations
+
+### Daily Vault Checks
+
+```bash
+# Check Vault seal status
+scripts/manage-vault.sh status
+
+# Quick health check
+curl -s http://192.168.100.102:8200/v1/sys/health | jq
+
+# Check for seal issues
+kubectl logs -n vault deployment/vault --tail=50 | grep -i "seal\|error\|warn"
+```
+
+### Vault Emergency Procedures
+
+**If Vault becomes sealed:**
+```bash
+# Check seal status
+scripts/manage-vault.sh status
+
+# Unseal if needed (requires unseal key)
+scripts/manage-vault.sh unseal
+
+# Or manually
+kubectl exec -n vault deployment/vault -- vault operator unseal
+```
+
+**Vault Backup (Monthly):**
+```bash
+# Create backup
+scripts/manage-vault.sh backup
+
+# Verify backup exists
+ls -la /tmp/vault-backups/
+```
+
+### Weekly Vault Maintenance
+
+**Check Vault logs for issues:**
+```bash
+kubectl logs -n vault deployment/vault --since=168h | grep -E "ERROR|WARN" | tail -20
+```
+
+**Verify external access:**
+```bash
+curl -s http://192.168.100.102:8200/v1/sys/health | jq .initialized
+```
+
+**Check network policies:**
+```bash
+kubectl get ciliumnetworkpolicy -n vault
+```
+
+## Maintenance Schedules
 
 ### Weekly Routines
 - Clean up old resources

@@ -1,0 +1,20 @@
+# HashiCorp Vault Namespace
+# Production-ready Vault deployment with Talos security compliance
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vault
+  labels:
+    name: vault
+    environment: production
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: security-stack
+    # Security policy - baseline for Vault operational requirements
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/audit: baseline
+    pod-security.kubernetes.io/warn: baseline
+  annotations:
+    # Network policy default deny for enhanced security
+    networking.cilium.io/policy-enforcement: default-deny

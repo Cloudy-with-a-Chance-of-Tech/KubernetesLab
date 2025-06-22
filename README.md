@@ -123,6 +123,7 @@ This repository includes comprehensive documentation for both entry-level and ad
 - **[Security Strategy](docs/security-strategy.md)** - Defense-in-depth approach
 - **[Network Segmentation](docs/network-segmentation.md)** - Microsegmentation with Cilium
 - **[Talos Credential Security](docs/talos-credential-security.md)** - Securing cluster access
+- **[Vault Deployment](docs/vault-deployment.md)** - Production HashiCorp Vault setup and management
 - **[Cilium Troubleshooting](docs/cilium-troubleshooting.md)** - Network monitoring and flow capture fixes
 - **[GitHub Actions Troubleshooting](docs/github-actions-troubleshooting.md)** - Runner and workflow issue resolution
 
@@ -164,6 +165,7 @@ All monitoring and observability services are now accessible externally via Load
 | **Hubble UI** | `192.168.100.99` | `http://192.168.100.99` | Network flow visualization and security insights |
 | **Prometheus** | `192.168.100.100` | `http://192.168.100.100:9090` | Metrics collection and querying |
 | **Grafana** | `192.168.100.101` | `http://192.168.100.101:3000` | Dashboards and visualization (admin/\<from .env\>) |
+| **Vault** | `192.168.100.102` | `http://192.168.100.102:8200` | HashiCorp Vault secrets management |
 
 **Key Benefits:**
 - ✅ Consistent access URLs that don't change with pod restarts

@@ -1,0 +1,32 @@
+# Kustomize configuration for Vault deployment
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/template/spec/volumes/configMap/name
+    kind: Deployment
+- kind: Secret
+  version: v1
+  fieldSpecs:
+  - path: spec/template/spec/containers/env/valueFrom/secretKeyRef/name
+    kind: Deployment
+- kind: PersistentVolumeClaim
+  version: v1
+  fieldSpecs:
+  - path: spec/template/spec/volumes/persistentVolumeClaim/claimName
+    kind: Deployment
+- kind: ServiceAccount
+  version: v1
+  fieldSpecs:
+  - path: spec/template/spec/serviceAccountName
+    kind: Deployment
+
+varReference:
+- path: metadata/annotations
+  kind: ConfigMap
+- path: metadata/annotations
+  kind: Secret
+- path: metadata/annotations
+  kind: Service
+- path: metadata/annotations
+  kind: Deployment

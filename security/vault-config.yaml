@@ -1,0 +1,55 @@
+# HashiCorp Vault Configuration
+# Production-ready configuration with single key unsealing
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-config
+  namespace: vault
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: security-stack
+    app.kubernetes.io/managed-by: kustomize
+data:
+  vault.hcl: |
+    # Vault Server Configuration
+    # Production configuration with security hardening
+    
+    # Storage backend - file storage for single-node deployment
+    storage "file" {
+      path = "/vault/data"
+    }
+    
+    # Network listener configuration
+    listener "tcp" {
+      address         = "0.0.0.0:8200"
+      cluster_address = "0.0.0.0:8201"
+      # TLS disabled for internal cluster communication
+      # External TLS termination handled by LoadBalancer/Ingress
+      tls_disable     = true
+    }
+    
+    # API address for cluster communication
+    api_addr = "http://vault.vault.svc.cluster.local:8200"
+    cluster_addr = "http://vault.vault.svc.cluster.local:8201"
+    
+    # UI configuration
+    ui = true
+    
+    # Disable mlock for containers (required in Kubernetes)
+    disable_mlock = true
+    
+    # Security settings
+    default_lease_ttl = "768h"
+    max_lease_ttl = "8760h"
+    
+    # Log level and path
+    log_level = "info"
+    log_file = "/vault/logs/"
+    
+    # Raw storage endpoint (disabled for security)
+    raw_storage_endpoint = false
+    
+    # Disable usage gathering for security
+    disable_gathering = true

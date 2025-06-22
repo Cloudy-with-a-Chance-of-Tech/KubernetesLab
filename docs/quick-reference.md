@@ -51,10 +51,12 @@ kubectl apply -k networking/
 # Check application status
 kubectl get pods -n github-actions
 kubectl get pods -n monitoring
+kubectl get pods -n vault
 kubectl get pods -n local-path-storage
 
 # View logs
 kubectl logs -f deployment/github-runner -n github-actions
+kubectl logs -f deployment/vault -n vault
 kubectl logs -f deployment/local-path-provisioner -n local-path-storage
 ```
 
@@ -129,6 +131,10 @@ kubectl port-forward -n monitoring svc/prometheus 9090:9090
 # Grafana (Dashboards)
 kubectl port-forward -n monitoring svc/grafana 3000:3000
 # Access: http://localhost:3000
+
+# Vault (Secrets Management)
+kubectl port-forward -n vault svc/vault 8200:8200
+# Access: http://localhost:8200
 ```
 
 ## 🔐 Security

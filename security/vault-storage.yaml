@@ -1,0 +1,22 @@
+# Vault Persistent Storage
+# Persistent storage for Vault data with appropriate security settings
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vault-data
+  namespace: vault
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: security-stack
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: local-path  # Use local-path-provisioner
+  # Volume expansion capabilities
+  volumeMode: Filesystem

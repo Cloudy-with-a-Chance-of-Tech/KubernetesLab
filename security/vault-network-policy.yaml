@@ -1,0 +1,275 @@
+# Cilium Network Policies for HashiCorp Vault
+# Comprehensive network security with monitoring and management access
+---
+# Default deny policy for vault namespace
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: vault-default-deny
+  namespace: vault
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: security-stack
+spec:
+  endpointSelector: {}
+  # Default deny all ingress and egress
+  ingress: []
+  egress: []
+---
+# Allow vault pods to communicate with Kubernetes API
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: vault-to-kubernetes-api
+  namespace: vault
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: security-stack
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: vault
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        "k8s:io.kubernetes.pod.namespace": kube-system
+        k8s-app: kube-apiserver
+    toPorts:
+    - ports:
+      - port: "6443"
+        protocol: TCP
+  - toServices:
+    - k8sService:
+        serviceName: kubernetes
+        namespace: default
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+---
+# Allow vault pods to perform DNS lookups
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: vault-dns-access
+  namespace: vault
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: security-stack
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: vault
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        "k8s:io.kubernetes.pod.namespace": kube-system
+        k8s-app: kube-dns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      - port: "53"
+        protocol: TCP
+  - toFQDNs:
+    - matchName: "kubernetes.default.svc.kub-cluster.local"
+    - matchName: "vault.vault.svc.kub-cluster.local"
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      - port: "53"
+        protocol: TCP
+---
+# Allow external access to vault API and UI
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: vault-external-access
+  namespace: vault
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: security-stack
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: vault
+  ingress:
+  # Allow external access only through LoadBalancer service (BGP/pfSense controlled)
+  - fromEntities:
+    - "host"  # Allow from node/host network (LoadBalancer traffic)
+    toPorts:
+    - ports:
+      - port: "8200"
+        protocol: TCP
+  # Allow specific internal cluster access to vault API (authorized namespaces only)
+  - fromEndpoints:
+    - matchLabels:
+        "k8s:io.kubernetes.pod.namespace": kube-system
+    toPorts:
+    - ports:
+      - port: "8200"
+        protocol: TCP
+  - fromEndpoints:
+    - matchLabels:
+        "k8s:io.kubernetes.pod.namespace": monitoring
+    toPorts:
+    - ports:
+      - port: "8200"
+        protocol: TCP
+  - fromEndpoints:
+    - matchLabels:
+        "k8s:io.kubernetes.pod.namespace": github-actions
+    toPorts:
+    - ports:
+      - port: "8200"
+        protocol: TCP
+  # Allow vault cluster communication (for HA when scaled)
+  - fromEndpoints:
+    - matchLabels:
+        app.kubernetes.io/name: vault
+    toPorts:
+    - ports:
+      - port: "8201"
+        protocol: TCP
+---
+# Allow vault to communicate with external systems if needed
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: vault-external-egress
+  namespace: vault
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: security-stack
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: vault
+  egress:
+  # Allow limited outbound access for essential operations only
+  - toEntities:
+    - "host"  # Allow to host network (for LoadBalancer communication)
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+      - port: "80"
+        protocol: TCP
+  # Allow communication within vault namespace
+  - toEndpoints:
+    - matchLabels:
+        "k8s:io.kubernetes.pod.namespace": vault
+  # Allow communication to specific cluster services only
+  - toServices:
+    - k8sService:
+        serviceName: kubernetes
+        namespace: default
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+---
+# Allow controlled external access via LoadBalancer only
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: vault-loadbalancer-access
+  namespace: vault
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: security-stack
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: vault
+  ingress:
+  # Allow traffic only through LoadBalancer service (BGP controlled by pfSense)
+  - fromCIDR:
+    - "192.168.1.0/24"  # Local network only (pfSense controlled)
+    toPorts:
+    - ports:
+      - port: "8200"
+        protocol: TCP
+  # Block direct internet access - must go through LoadBalancer/pfSense
+---
+# Allow monitoring access from Prometheus
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: vault-monitoring-access
+  namespace: vault
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: security-stack
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: vault
+  ingress:
+  # Allow Prometheus to scrape vault metrics
+  - fromEndpoints:
+    - matchLabels:
+        "k8s:io.kubernetes.pod.namespace": monitoring
+        app.kubernetes.io/name: prometheus
+    toPorts:
+    - ports:
+      - port: "8200"
+        protocol: TCP
+---
+# Allow external secrets operator access (when deployed)
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: vault-external-secrets-access
+  namespace: vault
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: security-stack
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: vault
+  ingress:
+  # Allow external secrets operator to access vault (when namespace exists)
+  - fromEndpoints:
+    - matchLabels:
+        "k8s:io.kubernetes.pod.namespace": external-secrets
+        app.kubernetes.io/name: external-secrets
+    toPorts:
+    - ports:
+      - port: "8200"
+        protocol: TCP
+---
+# Allow vault pods to communicate internally within namespace
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: vault-internal-communication
+  namespace: vault
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: security-stack
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: vault
+  ingress:
+  # Allow communication between vault pods (for clustering)
+  - fromEndpoints:
+    - matchLabels:
+        app.kubernetes.io/name: vault
+  egress:
+  # Allow communication between vault pods (for clustering)
+  - toEndpoints:
+    - matchLabels:
+        app.kubernetes.io/name: vault

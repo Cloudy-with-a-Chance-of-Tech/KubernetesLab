@@ -1,0 +1,222 @@
+# HashiCorp Vault Deployment
+# Production-ready Vault with Talos security compliance
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vault
+  namespace: vault
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: security-stack
+    app.kubernetes.io/version: "1.15.0"
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  replicas: 1  # Single node for simplicity, can be scaled later
+  strategy:
+    type: Recreate  # Ensure only one instance for file backend
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vault
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vault
+        app.kubernetes.io/component: security
+        app.kubernetes.io/part-of: security-stack
+        app.kubernetes.io/version: "1.15.0"
+      annotations:
+        # Restart on config changes
+        config/checksum: "{{ checksum of vault-config }}"
+    spec:
+      serviceAccountName: vault
+      # Security context - meets Talos restricted requirements
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100  # vault user
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+        # Additional security hardening
+        supplementalGroups: [1000]
+      # Init container to ensure proper permissions on data directory
+      initContainers:
+      - name: vault-init
+        image: hashicorp/vault:1.15.0
+        imagePullPolicy: Always
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # Ensure data directory exists and has correct permissions
+          mkdir -p /vault/data
+          chown -R 100:1000 /vault/data
+          chmod 750 /vault/data
+          echo "Vault data directory initialized"
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - CHOWN      # Required to change ownership of data directory
+            - FOWNER     # Required to set file ownership permissions
+            - DAC_OVERRIDE  # Required to modify files owned by different users
+          readOnlyRootFilesystem: false  # Need to write to temp directories during init
+          runAsNonRoot: false  # Needs root to chown and set up permissions
+          runAsUser: 0
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+        - name: vault-data
+          mountPath: /vault/data
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+            ephemeral-storage: "100Mi"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+            ephemeral-storage: "200Mi"
+      containers:
+      - name: vault
+        image: hashicorp/vault:1.15.0
+        imagePullPolicy: Always
+        # Security context - Vault requires specific capabilities
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - IPC_LOCK      # Required for mlock (even when disabled, Vault may attempt)
+            - SETFCAP       # Required for capability setting
+            - NET_BIND_SERVICE  # Required to bind to privileged ports if needed
+          readOnlyRootFilesystem: false  # Vault needs to write temp files and manage state
+          runAsNonRoot: true
+          runAsUser: 100
+          runAsGroup: 1000
+          seccompProfile:
+            type: RuntimeDefault
+        # Command and args
+        command:
+        - /bin/sh
+        - -c
+        args:
+        - |
+          # Start Vault server
+          exec vault server -config=/vault/config/vault.hcl
+        ports:
+        - name: api
+          containerPort: 8200
+          protocol: TCP
+        - name: cluster
+          containerPort: 8201
+          protocol: TCP
+        env:
+        - name: VAULT_ADDR
+          value: "http://127.0.0.1:8200"
+        - name: VAULT_API_ADDR
+          value: "http://vault.vault.svc.cluster.local:8200"
+        - name: VAULT_CLUSTER_ADDR
+          value: "http://vault.vault.svc.cluster.local:8201"
+        - name: SKIP_SETCAP
+          value: "true"  # Required for non-root execution
+        - name: VAULT_LOCAL_CONFIG
+          value: "/vault/config/vault.hcl"
+        # Resource limits and requests
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+            ephemeral-storage: "500Mi"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+            ephemeral-storage: "1Gi"
+        # Volume mounts
+        volumeMounts:
+        - name: vault-config
+          mountPath: /vault/config
+          readOnly: true
+        - name: vault-data
+          mountPath: /vault/data
+        - name: vault-logs
+          mountPath: /vault/logs
+        - name: tmp
+          mountPath: /tmp
+        - name: vault-home
+          mountPath: /home/vault
+        - name: dev-shm
+          mountPath: /dev/shm  # Shared memory for performance and secure operations
+        # Health checks
+        livenessProbe:
+          httpGet:
+            path: /v1/sys/health?standbyok=true&sealedcode=200&uninitcode=200
+            port: api
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /v1/sys/health?standbyok=true&sealedcode=200&uninitcode=200
+            port: api
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        # Startup probe for slow vault initialization
+        startupProbe:
+          httpGet:
+            path: /v1/sys/health?standbyok=true&sealedcode=200&uninitcode=200
+            port: api
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+      # Volumes
+      volumes:
+      - name: vault-config
+        configMap:
+          name: vault-config
+          defaultMode: 0644
+      - name: vault-data
+        persistentVolumeClaim:
+          claimName: vault-data
+      - name: vault-logs
+        emptyDir:
+          sizeLimit: 1Gi
+      - name: tmp
+        emptyDir:
+          sizeLimit: 100Mi
+      - name: vault-home
+        emptyDir:
+          sizeLimit: 100Mi
+      - name: dev-shm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 64Mi
+      # Node selection and tolerations
+      nodeSelector:
+        kubernetes.io/arch: amd64  # Prefer x86_64 nodes for stability
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/control-plane
+        operator: Exists
+      # Anti-affinity to avoid multiple vault pods on same node (if scaled)
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                  - vault
+              topologyKey: kubernetes.io/hostname
