@@ -11,8 +11,9 @@ metadata:
 resources:
   - prometheus/prometheus-config.yaml
   - prometheus/prometheus-deployment.yaml
+  - grafana/grafana-deployment.yaml
+  - node-exporter/node-exporter.yaml
   # Add more monitoring components as they're created
-  # - grafana/grafana-deployment.yaml
   # - alertmanager/alertmanager-deployment.yaml
   # Note: metrics-server is deployed separately as it requires kube-system namespace
 
