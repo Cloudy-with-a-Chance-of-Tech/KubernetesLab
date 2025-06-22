@@ -195,7 +195,7 @@ spec:
           limits:
             cpu: 500m
             memory: 500Mi
-            ephemeral-storage: 2Gi
+            ephemeral-storage: 35Gi
         ports:
         - name: https
           containerPort: 10250
