@@ -1,0 +1,212 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hubble-ui
+  namespace: cilium
+  labels:
+    app.kubernetes.io/name: hubble-ui
+    app.kubernetes.io/component: ui
+    app.kubernetes.io/part-of: cilium-cni
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: hubble-ui
+  template:
+    metadata:
+      labels:
+        k8s-app: hubble-ui
+        app.kubernetes.io/name: hubble-ui
+        app.kubernetes.io/component: ui
+        app.kubernetes.io/part-of: cilium-cni
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9967"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: hubble-ui
+      initContainers:
+      - name: copy-ui-files
+        image: quay.io/cilium/hubble-ui:v0.13.1
+        command: ["sh", "-c"]
+        args:
+        - |
+          cp -r /app/* /shared/html/
+        volumeMounts:
+        - name: shared-html
+          mountPath: /shared/html
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          runAsUser: 65534
+          runAsGroup: 65534
+      containers:
+      - name: ui
+        image: nginx:1.25-alpine
+        imagePullPolicy: Always
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 65534
+          runAsGroup: 65534
+        ports:
+        - name: ui
+          containerPort: 8080
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+            ephemeral-storage: 50Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+            ephemeral-storage: 200Mi
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+          periodSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 5
+          timeoutSeconds: 5
+          periodSeconds: 5
+          failureThreshold: 3
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d/default.conf
+          subPath: default.conf
+        - name: shared-html
+          mountPath: /usr/share/nginx/html
+        - name: tmp-nginx
+          mountPath: /tmp
+        - name: var-cache-nginx
+          mountPath: /var/cache/nginx
+        - name: var-run-nginx
+          mountPath: /var/run
+      - name: backend
+        image: quay.io/cilium/hubble-ui-backend:v0.13.1
+        imagePullPolicy: Always
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 65534
+          runAsGroup: 65534
+        env:
+        - name: EVENTS_SERVER_PORT
+          value: "8090"
+        - name: FLOWS_API_ADDR
+          value: "hubble-relay.cilium.svc.kub-cluster.local:80"
+        ports:
+        - name: grpc
+          containerPort: 8090
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+            ephemeral-storage: 50Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+            ephemeral-storage: 200Mi
+        livenessProbe:
+          tcpSocket:
+            port: 8090
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+          periodSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          tcpSocket:
+            port: 8090
+          initialDelaySeconds: 5
+          timeoutSeconds: 5
+          periodSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: hubble-ui-nginx-config
+      - name: shared-html
+        emptyDir: {}
+      - name: tmp-nginx
+        emptyDir: {}
+      - name: var-cache-nginx
+        emptyDir: {}
+      - name: var-run-nginx
+        emptyDir: {}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hubble-ui-nginx-config
+  namespace: cilium
+data:
+  default.conf: |
+    server {
+        listen       8080;
+        server_name  localhost;
+        
+        location / {
+            root   /usr/share/nginx/html;
+            index  index.html index.htm;
+            try_files $uri $uri/ /index.html;
+        }
+        
+        # API proxy to backend
+        location /api/ {
+            proxy_pass http://localhost:8090/api/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+        
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   /usr/share/nginx/html;
+        }
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hubble-ui
+  namespace: cilium
+  labels:
+    k8s-app: hubble-ui
+    app.kubernetes.io/name: hubble-ui
+    app.kubernetes.io/component: service
+    app.kubernetes.io/part-of: cilium-cni
+spec:
+  type: LoadBalancer
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    k8s-app: hubble-ui
