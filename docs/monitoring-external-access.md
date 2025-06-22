@@ -8,12 +8,14 @@ Both Prometheus and Grafana are configured with LoadBalancer services to enable 
 
 #### Prometheus Service
 - **Service Type**: `LoadBalancer`
+- **Static IP**: `192.168.100.100`
 - **Port**: `9090`
 - **Namespace**: `monitoring`
 - **Service Name**: `prometheus`
 
 #### Grafana Service  
 - **Service Type**: `LoadBalancer`
+- **Static IP**: `192.168.100.101`
 - **Port**: `3000`
 - **Namespace**: `monitoring`
 - **Service Name**: `grafana`
@@ -34,22 +36,25 @@ The LoadBalancer configuration is maintained in:
 
 Once deployed via the CI/CD pipeline, the services will be accessible at:
 
-- **Prometheus**: `http://<external-lb-ip>:9090`
-- **Grafana**: `http://<external-lb-ip>:3000`
+- **Hubble UI**: `http://192.168.100.99:80`
+- **Prometheus**: `http://192.168.100.100:9090`
+- **Grafana**: `http://192.168.100.101:3000`
 
-The external IP addresses will be assigned by your cluster's LoadBalancer implementation (e.g., MetalLB, cloud provider LB, etc.).
+The static IP addresses are configured in the LoadBalancer service specifications and will be assigned by your cluster's LoadBalancer implementation (e.g., MetalLB, cloud provider LB, etc.).
 
 ### 🔍 Verification Commands
 
 After deployment, verify external access with:
 
 ```bash
-# Check service status and external IPs
+# Check service status and static IP assignments
 kubectl get services -n monitoring
+kubectl get services -n cilium
 
-# Get specific external IPs
-kubectl get service prometheus -n monitoring -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
-kubectl get service grafana -n monitoring -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+# Verify specific static IP assignments
+kubectl get service prometheus -n monitoring -o jsonpath='{.spec.loadBalancerIP}'
+kubectl get service grafana -n monitoring -o jsonpath='{.spec.loadBalancerIP}'
+kubectl get service hubble-ui -n cilium -o jsonpath='{.spec.loadBalancerIP}'
 ```
 
 ### 🛡️ Security Considerations

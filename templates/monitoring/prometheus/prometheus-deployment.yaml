@@ -125,6 +125,7 @@ metadata:
     app.kubernetes.io/part-of: monitoring-stack
 spec:
   type: LoadBalancer
+  loadBalancerIP: "192.168.100.100"
   selector:
     app.kubernetes.io/name: prometheus
   ports:
