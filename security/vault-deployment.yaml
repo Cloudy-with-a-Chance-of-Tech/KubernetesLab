@@ -44,7 +44,7 @@ spec:
       # Init container to ensure proper permissions on data directory
       initContainers:
       - name: vault-init
-        image: hashicorp/vault:1.15.0
+        image: hashicorp/vault:1.19.5
         imagePullPolicy: Always
         command:
         - /bin/sh
@@ -83,7 +83,7 @@ spec:
             ephemeral-storage: "200Mi"
       containers:
       - name: vault
-        image: hashicorp/vault:1.15.0
+        image: hashicorp/vault:1.19.5
         imagePullPolicy: Always
         # Security context - Vault requires specific capabilities
         securityContext:
